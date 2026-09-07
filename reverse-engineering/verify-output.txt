@@ -1,0 +1,77 @@
+16 TAP blocks
+ 0 file=$00002 len=   19 id='.' xor=00
+ 1 file=$00017 len=  129 id='.' xor=00
+ 2 file=$0009A len=   19 id='.' xor=00
+ 3 file=$000AF len= 6914 id='.' xor=00
+ 4 file=$01BB3 len=   19 id='.' xor=00
+ 5 file=$01BC8 len=42242 id='.' xor=00
+ 6 file=$0C0CC len= 2253 id='d' xor=00
+   Keeps descriptor=$23 map_base=$41
+     F0: 15x15 offset=$0000 align=(2,2) block=$0041 complete
+     F1: 19x19 offset=$00E1 align=(0,0) block=$0122 complete
+     F2: 19x19 offset=$024A align=(0,0) block=$028B complete
+     F3:  0x0  offset=$0403 align=(0,0) block=$0444 unused
+     F4:  0x0  offset=$0417 align=(0,0) block=$0458 unused
+ 7 file=$0C99B len=  807 id='e' xor=00
+   Serpents descriptor=$23 map_base=$41
+     F0: 10x6  offset=$0000 align=(15,0) block=$0041 complete
+     F1: 21x21 offset=$003C align=(0,0) block=$007D complete
+     F2: 17x17 offset=$01F5 align=(2,2) block=$0236 PARTIAL 240/289
+     F3: 15x15 offset=$0316 align=(3,3) block=$0357 PARTIAL 0/225
+     F4:  0x0  offset=$049C align=(0,0) block=$04DD unused
+ 8 file=$0CCC4 len= 1861 id='f' xor=00
+   Serpent2 descriptor=$23 map_base=$41
+     F0: 15x15 offset=$0000 align=(0,0) block=$0041 complete
+     F1: 15x15 offset=$00E1 align=(0,0) block=$0122 complete
+     F2: 15x15 offset=$01C2 align=(0,0) block=$0203 complete
+     F3: 13x13 offset=$02A3 align=(1,1) block=$02E4 complete
+     F4: 13x13 offset=$034C align=(1,1) block=$038D complete
+ 9 file=$0D40B len= 2253 id='g' xor=00
+   Moons descriptor=$23 map_base=$41
+     F0: 12x12 offset=$0000 align=(4,4) block=$0041 complete
+     F1: 21x21 offset=$0090 align=(0,0) block=$00D1 complete
+     F2: 21x21 offset=$0249 align=(0,0) block=$028A complete
+     F3:  0x0  offset=$03C3 align=(0,0) block=$0404 unused
+     F4:  0x0  offset=$04E4 align=(0,0) block=$0525 unused
+10 file=$0DCDA len= 2253 id='h' xor=00
+   Moon2 descriptor=$23 map_base=$41
+     F0: 19x19 offset=$0000 align=(0,0) block=$0041 complete
+     F1: 19x19 offset=$0169 align=(0,0) block=$01AA complete
+     F2: 17x17 offset=$02D2 align=(1,1) block=$0313 complete
+     F3:  5x5  offset=$03F3 align=(8,8) block=$0434 complete
+     F4:  0x0  offset=$0444 align=(0,0) block=$0485 unused
+11 file=$0E5A9 len= 2253 id='i' xor=00
+   Dragons descriptor=$23 map_base=$41
+     F0: 27x27 offset=$0000 align=(0,3) block=$0041 complete
+     F1: 17x17 offset=$02D9 align=(5,8) block=$031A complete
+     F2:  0x0  offset=$03FA align=(0,0) block=$043B unused
+     F3:  0x0  offset=$051B align=(0,0) block=$055C unused
+     F4:  0x0  offset=$05C4 align=(0,0) block=$0605 unused
+12 file=$0EE78 len= 2253 id='j' xor=00
+   Dragon2 descriptor=$23 map_base=$41
+     F0: 19x19 offset=$0000 align=(0,0) block=$0041 complete
+     F1: 17x17 offset=$0169 align=(1,1) block=$01AA complete
+     F2: 13x13 offset=$028A align=(3,3) block=$02CB complete
+     F3: 11x11 offset=$0333 align=(4,4) block=$0374 complete
+     F4:  7x6  offset=$03AC align=(7,6) block=$03ED complete
+13 file=$0F747 len= 2253 id='k' xor=00
+   Archaus descriptor=$23 map_base=$41
+     F0: 21x21 offset=$0000 align=(0,0) block=$0041 complete
+     F1: 21x21 offset=$01B9 align=(0,0) block=$01FA complete
+     F2:  0x0  offset=$0372 align=(0,0) block=$03B3 unused
+     F3:  0x0  offset=$052B align=(0,0) block=$056C unused
+     F4:  0x0  offset=$0690 align=(0,0) block=$06D1 unused
+14 file=$10016 len= 2253 id='l' xor=00
+   Chaos2 descriptor=$23 map_base=$41
+     F0: 17x21 offset=$0000 align=(0,0) block=$0041 complete
+     F1: 15x21 offset=$0165 align=(0,0) block=$01A6 complete
+     F2: 13x21 offset=$02A0 align=(0,0) block=$02E1 complete
+     F3:  9x9  offset=$03B1 align=(2,2) block=$03F2 complete
+     F4:  5x2  offset=$0402 align=(4,4) block=$0443 complete
+15 file=$108E5 len= 1574 id='m' xor=00
+   Zendiks descriptor=$23 map_base=$41
+     F0: 19x19 offset=$0000 align=(0,0) block=$0041 complete
+     F1: 19x19 offset=$0169 align=(0,0) block=$01AA complete
+     F2: 17x17 offset=$02D2 align=(1,1) block=$0313 complete
+     F3:  0x0  offset=$03F3 align=(0,0) block=$0434 unused
+     F4:  0x0  offset=$05A4 align=(0,0) block=$05E5 unused

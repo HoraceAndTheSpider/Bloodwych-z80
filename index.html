@@ -16,6 +16,13 @@
   <aside class="side">
     <h2>Tower data</h2><pre id="towerInfo">No TAP loaded.</pre>
     <h2>Display</h2>
+    <label>Map style
+      <select id="mapStyle">
+        <option value="modern" selected>Modern</option>
+        <option value="amstrad">Amstrad / CPC</option>
+        <option value="amiga">Amiga / AMOS</option>
+      </select>
+    </label>
     <label>Zoom <input id="zoom" type="range" min="18" max="46" value="30"></label><br>
     <label><input id="aligned" type="checkbox" checked> Align floors using X/Y offsets</label>
     <label><input id="showGrid" type="checkbox" checked> Cell grid</label>
@@ -28,6 +35,14 @@
   <main class="map-area"><div class="map-frame"><canvas id="map"></canvas></div></main>
   <aside class="side right">
     <section><h2>Tile inspector</h2><pre id="tileInfo">Select a map cell.</pre>
+      <h2>Quick edit</h2>
+      <div class="shortcut-grid">
+        <button id="cutCell"><kbd>X</kbd> Cut</button>
+        <button id="copyCell"><kbd>C</kbd> Copy</button>
+        <button id="pasteCell"><kbd>V</kbd> Paste</button>
+      </div>
+      <div id="clipboardInfo" class="clipboard">Clipboard: empty</div>
+      <p class="footer-note">X/C/V work without Ctrl while the map/editor chrome has focus. Cut replaces the selected cell with $00. Shortcuts are ignored while typing in a form field.</p>
       <h2>Edit selected byte</h2><div class="edit-row"><input id="editByte" maxlength="2" placeholder="00"><button id="applyEdit">Apply</button></div>
       <p class="footer-note">Edits are written to an in-memory copy of the original TAP block. The block XOR checksum is recalculated immediately. Original bytes remain available for reset/audit.</p></section>
     <section><h2>Export</h2><div class="button-grid"><button id="exportTap">Modified TAP</button><button id="exportPatch">Patch JSON</button><button id="exportBlock">Raw block</button><button id="exportFloor">Raw floor</button><button id="exportJson">Tower JSON</button><button id="resetAll">Reset all</button></div>

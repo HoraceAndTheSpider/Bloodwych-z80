@@ -1,14 +1,21 @@
 (function(){
   'use strict';
   let tap=null,towers=[],tower=null,floor=null,selected=null,renderMetrics=null;
+  let clipboardByte=null;
   const changes=[];
   const $=id=>document.getElementById(id);
   const fileInput=$('tapFile'),towerSel=$('tower'),floorSel=$('floor'),canvas=$('map');
 
   function hex(n,w=2){return '$'+n.toString(16).toUpperCase().padStart(w,'0');}
-  function setStatus(msg,kind=''){const e=$('status');e.textContent=msg;e.className=kind;}
+  function setStatus(msg,kind=''){const e=$('status');e.textContent=msg;e.className=`status${kind?' '+kind:''}`;}
   function download(name, bytes, mime='application/octet-stream'){
     const blob=new Blob([bytes],{type:mime});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  }
+  function selectedCell(){return selected&&tap&&tower&&floor?BWBloodwych.getCell(tap,tower,floor,selected.x,selected.y):null;}
+  function updateClipboardInfo(){
+    const e=$('clipboardInfo');
+    if(clipboardByte==null){e.textContent='Clipboard: empty';e.classList.remove('has-value');return;}
+    const t=BWTiles.decode(clipboardByte);e.textContent=`Clipboard: ${hex(clipboardByte)} — ${t.label}`;e.classList.add('has-value');
   }
 
   function loadBuffer(buf,label){
@@ -16,7 +23,7 @@
       tap=BWTap.parseTap(buf);towers=BWBloodwych.findTowers(tap);
       if(towers.length!==10) setStatus(`Loaded ${label}: found ${towers.length} custom blocks (expected 10).`,'warn');
       else setStatus(`Loaded ${label}: ${tap.blocks.length} TAP blocks, 10 Bloodwych data blocks. Checksums ${tap.blocks.every(b=>b.checksumValid)?'OK':'include failures'}.`,'ok');
-      changes.length=0; populateTowers();
+      changes.length=0;clipboardByte=null;updateClipboardInfo();populateTowers();renderChanges();
     }catch(e){console.error(e);setStatus(e.message,'error');}
   }
 
@@ -33,12 +40,16 @@
   function selectFloor(){floor=tower.floors[+floorSel.value];selected=null;render();renderInspector(null);}
 
   function render(){
+    const mapFrame=canvas.closest('.map-frame');
+    const style=$('mapStyle').value||'modern';
+    if(mapFrame) mapFrame.className=`map-frame ${style}`;
     if(!tap||!tower||!floor||!floor.used){canvas.width=1;canvas.height=1;return;}
     renderMetrics=BWRenderer.render(canvas,tap,tower,floor,{
       cellSize:+$('zoom').value,
       aligned:$('aligned').checked,
       showHex:$('showHex').checked,
       showGrid:$('showGrid').checked,
+      style,
       selected
     });
     $('floorWarning').textContent=floor.complete?'':`This floor is physically partial in this TAP block: ${floor.availableCells}/${floor.cellCount} bytes available.`;
@@ -93,22 +104,59 @@
 
   canvas.addEventListener('click',ev=>{const c=cellFromClick(ev);if(!c)return;selected={x:c.x,y:c.y};render();renderInspector(c);});
 
-  $('applyEdit').addEventListener('click',()=>{
-    if(!selected)return;let v=parseInt($('editByte').value,16);if(!Number.isInteger(v)||v<0||v>255){setStatus('Enter a byte from 00 to FF.','error');return;}
-    const before=BWBloodwych.getCell(tap,tower,floor,selected.x,selected.y);const oldTower=tower;
+  function applySelectedValue(v, action='edit'){
+    if(!selected){setStatus('Select a map cell first.','warn');return false;}
+    if(!Number.isInteger(v)||v<0||v>255){setStatus('Enter a byte from 00 to FF.','error');return false;}
+    const before=selectedCell();
+    if(!before)return false;
+    if(before.value===v){setStatus(`${action}: selected cell is already ${hex(v)}.`,'');return true;}
     tower=BWBloodwych.writeCell(tap,tower,floor,selected.x,selected.y,v);
-    towers[towers.findIndex(t=>t.blockIndex===tower.blockIndex)]=tower;floor=tower.floors[floor.floorIndex];
-    changes.push({tower:tower.id,floor:floor.floorIndex,x:selected.x,y:selected.y,from:before.value,to:v,fileOffset:before.fileOffset});
-    render();renderInspector(BWBloodwych.getCell(tap,tower,floor,selected.x,selected.y));renderTowerInfo();renderChanges();
+    towers[towers.findIndex(t=>t.blockIndex===tower.blockIndex)]=tower;
+    floor=tower.floors[floor.floorIndex];
+    changes.push({action,tower:tower.id,floor:floor.floorIndex,x:selected.x,y:selected.y,from:before.value,to:v,fileOffset:before.fileOffset});
+    render();renderInspector(selectedCell());renderTowerInfo();renderChanges();
+    setStatus(`${action[0].toUpperCase()+action.slice(1)} ${BWRenderer.rowLabel(selected.y)}${selected.x}: ${hex(before.value)} → ${hex(v)}.`,'ok');
+    return true;
+  }
+
+  function copySelected(){
+    const cell=selectedCell();if(!cell){setStatus('Select a map cell to copy.','warn');return;}
+    clipboardByte=cell.value;updateClipboardInfo();setStatus(`Copied ${hex(clipboardByte)} from ${BWRenderer.rowLabel(cell.y)}${cell.x}.`,'ok');
+  }
+  function cutSelected(){
+    const cell=selectedCell();if(!cell){setStatus('Select a map cell to cut.','warn');return;}
+    clipboardByte=cell.value;updateClipboardInfo();applySelectedValue(0x00,'cut');
+  }
+  function pasteSelected(){
+    if(clipboardByte==null){setStatus('Clipboard is empty. Copy or cut a map cell first.','warn');return;}
+    applySelectedValue(clipboardByte,'paste');
+  }
+
+  $('applyEdit').addEventListener('click',()=>{const v=parseInt($('editByte').value,16);applySelectedValue(v,'edit');});
+  $('cutCell').addEventListener('click',cutSelected);
+  $('copyCell').addEventListener('click',copySelected);
+  $('pasteCell').addEventListener('click',pasteSelected);
+
+  // Deliberately single-key editing, matching the user's fast-test workflow.
+  // Ctrl/Cmd/Alt combinations retain normal browser behaviour. Typing in a
+  // form field also bypasses these shortcuts so the hex editor stays usable.
+  document.addEventListener('keydown',ev=>{
+    if(ev.ctrlKey||ev.metaKey||ev.altKey)return;
+    const target=ev.target;
+    if(target && (target.tagName==='INPUT'||target.tagName==='TEXTAREA'||target.tagName==='SELECT'||target.isContentEditable))return;
+    const key=ev.key.toLowerCase();
+    if(key==='x'){ev.preventDefault();cutSelected();}
+    else if(key==='c'){ev.preventDefault();copySelected();}
+    else if(key==='v'){ev.preventDefault();pasteSelected();}
   });
 
   function renderChanges(){
     $('changeCount').textContent=String(changes.length);
-    $('changes').innerHTML=changes.slice().reverse().map(c=>`<li>${c.tower.toUpperCase()} F${c.floor} ${BWRenderer.rowLabel(c.y)}${c.x}: ${hex(c.from)} → ${hex(c.to)} <small>@ ${hex(c.fileOffset,5)}</small></li>`).join('')||'<li>No edits.</li>';
+    $('changes').innerHTML=changes.slice().reverse().map(c=>`<li>${(c.action||'edit').toUpperCase()} ${c.tower.toUpperCase()} F${c.floor} ${BWRenderer.rowLabel(c.y)}${c.x}: ${hex(c.from)} → ${hex(c.to)} <small>@ ${hex(c.fileOffset,5)}</small></li>`).join('')||'<li>No edits.</li>';
   }
 
   $('resetAll').addEventListener('click',()=>{
-    if(!tap)return;for(const b of tap.blocks)b.raw=b.originalRaw.slice();changes.length=0;towers=BWBloodwych.findTowers(tap);tower=towers.find(t=>t.id===tower.id)||towers[0];floor=tower.floors[floor.floorIndex];render();renderTowerInfo();renderChanges();if(selected)renderInspector(BWBloodwych.getCell(tap,tower,floor,selected.x,selected.y));
+    if(!tap)return;for(const b of tap.blocks)b.raw=b.originalRaw.slice();changes.length=0;towers=BWBloodwych.findTowers(tap);tower=towers.find(t=>t.id===tower.id)||towers[0];floor=tower.floors[floor.floorIndex];render();renderTowerInfo();renderChanges();if(selected)renderInspector(selectedCell());setStatus('All map edits reset to the loaded TAP.','ok');
   });
 
   $('exportTap').addEventListener('click',()=>{if(!tap)return;download('Bloodwych-modified.TAP',BWTap.rebuildTap(tap));});
@@ -124,6 +172,7 @@
   $('loadBundled').addEventListener('click',async()=>{try{const r=await fetch('../data/Bloodwych%20%5BZX%20Spectrum%5D.TAP');if(!r.ok)throw new Error(`HTTP ${r.status}`);loadBuffer(await r.arrayBuffer(),'bundled TAP');}catch(e){setStatus('Bundled TAP could not be loaded. Use “Choose TAP” or serve the repo with python -m http.server.','warn');}});
   towerSel.addEventListener('change',selectTower);floorSel.addEventListener('change',selectFloor);
   ['zoom','aligned','showHex','showGrid'].forEach(id=>$(id).addEventListener('input',render));
+  $('mapStyle').addEventListener('change',render);
 
-  renderChanges();
+  renderChanges();updateClipboardInfo();render();
 })();
