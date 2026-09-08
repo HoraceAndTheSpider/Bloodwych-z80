@@ -20,9 +20,14 @@
 
   function loadBuffer(buf,label){
     try{
-      tap=BWTap.parseTap(buf);towers=BWBloodwych.findTowers(tap);
-      if(towers.length!==10) setStatus(`Loaded ${label}: found ${towers.length} custom blocks (expected 10).`,'warn');
-      else setStatus(`Loaded ${label}: ${tap.blocks.length} TAP blocks, 10 Bloodwych data blocks. Checksums ${tap.blocks.every(b=>b.checksumValid)?'OK':'include failures'}.`,'ok');
+      tap=BWTap.parseTape(buf);towers=BWBloodwych.findTowers(tap);
+      if(towers.length!==10) setStatus(`Loaded ${label}: ${tap.format} format, found ${towers.length} Bloodwych level blocks (expected 10 on the level-data side).`,'warn');
+      else {
+        const allParity=tap.blocks.every(b=>b.checksumValid);
+        const complete=towers.every(t=>t.floors.filter(f=>f.used).every(f=>f.complete));
+        const detail=tap.format==='TZX'?`TZX ${tap.version}; ${tap.blocks.length} standard data blocks`:`${tap.blocks.length} TAP blocks`;
+        setStatus(`Loaded ${label}: ${detail}; 10 Bloodwych level blocks. Spectrum parity ${allParity?'OK':'has failures'}. Floors ${complete?'complete':'include physically short data'}.`, allParity?'ok':'warn');
+      }
       changes.length=0;clipboardByte=null;updateClipboardInfo();populateTowers();renderChanges();
     }catch(e){console.error(e);setStatus(e.message,'error');}
   }
@@ -41,8 +46,10 @@
 
   function render(){
     const mapFrame=canvas.closest('.map-frame');
+    const mapArea=canvas.closest('.map-area');
     const style=$('mapStyle').value||'modern';
     if(mapFrame) mapFrame.className=`map-frame ${style}`;
+    if(mapArea) mapArea.className=`map-area ${style}`;
     if(!tap||!tower||!floor||!floor.used){canvas.width=1;canvas.height=1;return;}
     renderMetrics=BWRenderer.render(canvas,tap,tower,floor,{
       cellSize:+$('zoom').value,
@@ -52,16 +59,19 @@
       style,
       selected
     });
-    $('floorWarning').textContent=floor.complete?'':`This floor is physically partial in this TAP block: ${floor.availableCells}/${floor.cellCount} bytes available.`;
+    $('floorWarning').textContent=floor.complete?'':`This floor is physically partial in this ${tap.format} data block: ${floor.availableCells}/${floor.cellCount} bytes available. Prefer the supplied Level Data TZX, whose d–m blocks are complete.`;
   }
 
   function renderTowerInfo(){
     const lines=[];
     lines.push(`${tower.name} [${tower.id}]`);
-    lines.push(`TAP block: ${tower.blockIndex}`);
-    lines.push(`Block file offset: ${hex(tower.blockFileOffset,5)}`);
+    const b=tap.blocks[tower.blockIndex];
+    lines.push(`Source format: ${tap.format}${tap.version?` ${tap.version}`:''}`);
+    lines.push(`Data block: ${tower.blockIndex}${b.blockType!=null?` (TZX $${b.blockType.toString(16).toUpperCase()})`:''}`);
+    lines.push(`Block data file offset: ${hex(tower.blockFileOffset,5)}`);
     lines.push(`Block length: ${tower.blockLength} bytes`);
-    lines.push(`Checksum: ${tap.blocks[tower.blockIndex].checksumValid?'valid':'INVALID'}`);
+    if(b.pauseMs!=null) lines.push(`TZX pause after block: ${b.pauseMs} ms`);
+    lines.push(`Spectrum XOR parity: ${b.checksumValid?'valid':'INVALID'}`);
     lines.push(`Descriptor table: block +$23`);
     lines.push(`Map base: block +$41`);
     lines.push(`Switch count (map order): ${tower.switchCount}`);
@@ -84,9 +94,10 @@
       t.orientation?`Orientation: ${t.orientation}`:'',
       t.lockId!=null?`Lock: ${t.lockId}`:'',
       cell.switchSequence!=null?`Switch sequence: #${cell.switchSequence}`:'',
+      cell.playerStarts&&cell.playerStarts.length?`Player start: ${cell.playerStarts.map(p=>`P${p.player}`).join(', ')}`:'',
       `Floor data index: ${cell.index}`,
       `Custom-block offset: ${hex(cell.blockOffset,4)}`,
-      `Absolute TAP file offset: ${hex(cell.fileOffset,5)}`,
+      `Absolute ${tap.format} file offset: ${hex(cell.fileOffset,5)}`,
       t.note?`Note: ${t.note}`:''
     ].filter(Boolean);
     $('tileInfo').textContent=lines.join('\n');$('editByte').value=cell.value.toString(16).toUpperCase().padStart(2,'0');
@@ -148,6 +159,7 @@
     if(key==='x'){ev.preventDefault();cutSelected();}
     else if(key==='c'){ev.preventDefault();copySelected();}
     else if(key==='v'){ev.preventDefault();pasteSelected();}
+    else if(ev.key==='Backspace'){ev.preventDefault();applySelectedValue(0x00,'clear');}
   });
 
   function renderChanges(){
@@ -156,10 +168,10 @@
   }
 
   $('resetAll').addEventListener('click',()=>{
-    if(!tap)return;for(const b of tap.blocks)b.raw=b.originalRaw.slice();changes.length=0;towers=BWBloodwych.findTowers(tap);tower=towers.find(t=>t.id===tower.id)||towers[0];floor=tower.floors[floor.floorIndex];render();renderTowerInfo();renderChanges();if(selected)renderInspector(selectedCell());setStatus('All map edits reset to the loaded TAP.','ok');
+    if(!tap)return;for(const b of tap.blocks)b.raw=b.originalRaw.slice();changes.length=0;towers=BWBloodwych.findTowers(tap);tower=towers.find(t=>t.id===tower.id)||towers[0];floor=tower.floors[floor.floorIndex];render();renderTowerInfo();renderChanges();if(selected)renderInspector(selectedCell());setStatus(`All map edits reset to the loaded ${tap.format}.`,'ok');
   });
 
-  $('exportTap').addEventListener('click',()=>{if(!tap)return;download('Bloodwych-modified.TAP',BWTap.rebuildTap(tap));});
+  $('exportTap').addEventListener('click',()=>{if(!tap)return;const ext=tap.format==='TZX'?'tzx':'tap';download(`Bloodwych-modified.${ext}`,BWTap.rebuildTape(tap));});
   $('exportBlock').addEventListener('click',()=>{if(!tap||!tower)return;download(`Bloodwych-${tower.id}-${tower.name}-block.bin`,tap.blocks[tower.blockIndex].raw);});
   $('exportFloor').addEventListener('click',()=>{if(!floor||!floor.used)return;const block=tap.blocks[tower.blockIndex];const bytes=block.raw.slice(floor.blockStart,floor.blockStart+floor.availableCells);download(`${tower.id}-${tower.name}-floor${floor.floorIndex}.bin`,bytes);});
   $('exportPatch').addEventListener('click',()=>{download('bloodwych-level-edits.json',JSON.stringify({format:'Bloodwych-zx-level-edits-v1',changes},null,2),'application/json');});
@@ -169,7 +181,9 @@
   });
 
   fileInput.addEventListener('change',async()=>{const f=fileInput.files[0];if(f)loadBuffer(await f.arrayBuffer(),f.name);});
-  $('loadBundled').addEventListener('click',async()=>{try{const r=await fetch('../data/Bloodwych%20%5BZX%20Spectrum%5D.TAP');if(!r.ok)throw new Error(`HTTP ${r.status}`);loadBuffer(await r.arrayBuffer(),'bundled TAP');}catch(e){setStatus('Bundled TAP could not be loaded. Use “Choose TAP” or serve the repo with python -m http.server.','warn');}});
+  async function loadBundled(path,label){try{const r=await fetch(path);if(!r.ok)throw new Error(`HTTP ${r.status}`);loadBuffer(await r.arrayBuffer(),label);}catch(e){setStatus(`Bundled ${label} could not be loaded. Use “Choose TAP/TZX” or serve the repo with python -m http.server.`, 'warn');}}
+  $('loadBundled').addEventListener('click',()=>loadBundled('data/Bloodwych%20-%20Level%20Data.tzx','Level Data TZX'));
+  $('loadBundledTap').addEventListener('click',()=>loadBundled('data/Bloodwych%20%5BZX%20Spectrum%5D.TAP','legacy TAP'));
   towerSel.addEventListener('change',selectTower);floorSel.addEventListener('change',selectFloor);
   ['zoom','aligned','showHex','showGrid'].forEach(id=>$(id).addEventListener('input',render));
   $('mapStyle').addEventListener('change',render);

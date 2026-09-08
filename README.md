@@ -1,8 +1,14 @@
-# Bloodwych ZX Level Editor — Stage 2
+# Bloodwych ZX Level Editor — Stage 4
 
-A TAP-native HTML5 viewer/editor for the ZX Spectrum version of **Bloodwych**.
+A TAP/TZX-native HTML5 viewer/editor for the ZX Spectrum version of **Bloodwych**.
 
-The editor reads the supplied ZX `.TAP` directly. It does not emulate a Spectrum and does not depend on manually extracted `.dat` floor files.
+The editor reads the supplied tape image directly in the browser. It does not emulate a Spectrum and does not depend on manually extracted `.dat` floor files.
+
+## Recommended source
+
+Use **`Bloodwych - Level Data.tzx`** for editing levels.
+
+The newly supplied TZX resolves an important ambiguity in the older combined TAP: all ten level blocks `d..m` are exactly 2253 bytes in the TZX (flag + 2251 data bytes + parity), matching the game's fixed `DE=$08CB` loader length. In the older TAP, blocks `e`, `f` and `m` are physically shortened; `e` even ends inside map data. The editor therefore keeps TAP support for inspection/compatibility, but treats the Level Data TZX as the authoritative editing source.
 
 ## Run it
 
@@ -11,24 +17,26 @@ cd Bloodwych-zx-level-editor
 python3 -m http.server 8000
 ```
 
-Open `http://localhost:8000/` and press **Load bundled TAP**.
+Open `http://localhost:8000/` and press **Load bundled Level Data TZX**.
 
-You can also choose another compatible TAP with the file picker.
+You can also choose another compatible `.tap` or `.tzx` file with the file picker.
 
 ## Current features
 
-- Reads the original `.TAP` directly in JavaScript.
+- Reads TAP and TZX directly in JavaScript.
+- TZX support preserves the supplied file header, text-description block, per-block pauses/timing metadata and block sizes.
+- Supports the TZX block types actually present in the supplied Bloodwych images: `$10` Standard Speed Data and `$30` Text Description.
 - Finds custom level blocks `d..m` and names them Keeps through Zendiks.
 - Reads the five 6-byte floor descriptors at block offset `$23`.
 - Treats floor offsets as big-endian.
 - Reads map bytes from block offset `$41 + floor_offset`, one byte per cell.
 - Applies each floor's X/Y alignment.
-- Shows local and aligned coordinates plus exact block/TAP file offsets.
+- Shows local/aligned coordinates and exact tape-file offsets.
 - Separates confirmed, inferred and unknown map-byte meanings.
-- Numbers switches in sequential map-storage order for switch-table investigation.
+- Numbers switches in sequential map-storage order.
 - Keeps original and modified bytes separate.
-- Recalculates the affected TAP block XOR checksum after edits.
-- Exports a modified TAP, patch JSON, raw tower block, raw floor and tower JSON.
+- Recalculates the affected Spectrum XOR parity byte after edits.
+- Exports a modified source-format tape (`.tzx` stays TZX; `.tap` stays TAP), patch JSON, raw tower block, raw floor and tower JSON.
 
 ## Fast editing
 
@@ -42,27 +50,41 @@ The same operations have visible buttons in the Tile Inspector. The internal cli
 
 ## Map styles
 
-The **Modern** map is now the default because it gives clearer separation between walls, paths and interactive cells.
+The **Modern** map is the default.
 
-Three styles are available without changing the underlying map data:
+1. **Modern** — colour-coded, high-contrast editor view.
+2. **Amstrad / CPC** — monochrome symbolic presentation retained as a reference option.
+3. **Amiga / AMOS** — coloured procedural view inspired by the 68k editor's 16×8 logical map cells and palette. This is a visual translation only; the ZX and Amiga binary formats differ.
 
-1. **Modern** — colour-coded, high-contrast editor view for routine work.
-2. **Amstrad / CPC** — the monochrome symbolic presentation retained from Stage 1 as a historical/reference option.
-3. **Amiga / AMOS** — a coloured procedural view inspired by the 68k editor's AMOS-style 16×8 logical map cells and original 16-colour palette. Because the ZX map stores a different one-byte format, this is a visual translation of equivalent concepts rather than an assertion that the two binary formats are identical.
+## Tape-format finding
 
-The chosen style only affects rendering. Edits always operate on the original ZX map byte.
+The Level Data TZX contains ten `$10` Standard Speed Data blocks, each 2253 bytes:
 
-## Known caveat
+```text
+flag d..m            1 byte
+Bloodwych level data 2251 bytes ($08CB)
+Spectrum XOR parity  1 byte
+                     ----
+                     2253 bytes
+```
 
-The custom `e` / Serpents block physically ends before all bytes implied by its floor descriptors. Those floors remain marked **PARTIAL**; the editor does not invent missing data or treat this as a decompression issue.
+The per-block pauses are retained exactly on export. A test edit to the TZX changes exactly two bytes in the whole file: the selected map byte and that block's parity byte.
+
+The supplied combined TAP is not byte-for-byte equivalent to the TZX level side: `e`, `f` and `m` are shortened there. That now explains the earlier conflict between the fixed loader length and the TAP's physical block sizes, and is also a plausible reason stricter emulators object to that TAP while Fuse accepts it.
 
 ## Offline verification
 
 ```bash
-python3 tools/verify_tap.py "data/Bloodwych [ZX Spectrum].TAP"
-python3 tools/extract_levels.py "data/Bloodwych [ZX Spectrum].TAP" extracted
+python3 tools/verify_tape.py "data/Bloodwych - Level Data.tzx"
+python3 tools/verify_tape.py "data/Bloodwych [ZX Spectrum].TAP"
 ```
+
+Saved audit examples are in `reverse-engineering/tzx-verify-output.txt` and `reverse-engineering/tap-verify-output-stage3.txt`.
 
 ## Development direction
 
-The next reverse-engineering work remains the data surrounding the raw floor grids: switch actions, trigger functions, player starts, monster/object records and the loader behaviour around split/partial tower data. These should feed back into this same TAP-native editor rather than creating a separate data model.
+The next reverse-engineering work should now use the complete TZX blocks when decoding the data after the floor grids: switch actions, triggers, monster/object records and other per-tower tables. The loader investigation can also proceed against a tape image whose block sizes now exactly match the Z80 loader.
+
+### Stage 4 controls/display
+
+`X`, `C`, `V` are unmodified cut/copy/paste shortcuts. `Backspace` clears the selected cell to `$00`. P1/P2 entry positions are shown directly on their stored floor. Modern door-axis rendering now agrees with the AMOS view; ladder orientation remains deliberately unspecified until verified from the Z80 logic.

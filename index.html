@@ -5,16 +5,16 @@
 <header class="topbar">
   <h1>Bloodwych ZX Level Editor</h1>
   <div class="controls">
-    <label>Choose TAP <input id="tapFile" type="file" accept=".tap,application/octet-stream"></label>
-    <button id="loadBundled">Load bundled TAP</button>
+    <label>Choose TAP/TZX <input id="tapFile" type="file" accept=".tap,.tzx,application/octet-stream"></label>
+    <button id="loadBundled">Load bundled Level Data TZX</button><button id="loadBundledTap">Load bundled TAP</button>
     <label>Tower <select id="tower"></select></label>
     <label>Floor <select id="floor"></select></label>
   </div>
-  <div id="status" class="status">Load the supplied TAP file to begin.</div>
+  <div id="status" class="status">Load the supplied Level Data TZX (recommended) or TAP file to begin.</div>
 </header>
 <div class="workspace">
   <aside class="side">
-    <h2>Tower data</h2><pre id="towerInfo">No TAP loaded.</pre>
+    <h2>Tower data</h2><pre id="towerInfo">No tape loaded.</pre>
     <h2>Display</h2>
     <label>Map style
       <select id="mapStyle">
@@ -29,7 +29,7 @@
     <label><input id="showHex" type="checkbox"> Raw hex on known cells</label>
     <p id="floorWarning" class="warning"></p>
     <h2>Legend</h2>
-    <div class="legend"><div><span>Path</span><code>$00</code></div><div><span>Wall</span><code>$03</code></div><div><span>Door</span><code>$x2 / $xA</code></div><div><span>Switch</span><code>$43/$4B/$53/$5B</code></div><div><span>Socket</span><code>$23/$2B/$33/$3B</code></div><div><span>Monster</span><code>$8x</code></div></div>
+    <div class="legend"><div><span>Path</span><code>$00</code></div><div><span>Wall</span><code>$03</code></div><div><span>Door</span><code>$x2 / $xA</code></div><div><span>Switch</span><code>$43/$4B/$53/$5B</code></div><div><span>Socket</span><code>$23/$2B/$33/$3B</code></div><div><span>Monster</span><code>$8x</code></div><div><span>Player starts</span><code>P1 / P2</code></div></div>
     <p class="confidence">Cyan #numbers on switches are their sequential occurrence in map-storage order, for testing the switch-action-list hypothesis.</p>
   </aside>
   <main class="map-area"><div class="map-frame"><canvas id="map"></canvas></div></main>
@@ -42,10 +42,10 @@
         <button id="pasteCell"><kbd>V</kbd> Paste</button>
       </div>
       <div id="clipboardInfo" class="clipboard">Clipboard: empty</div>
-      <p class="footer-note">X/C/V work without Ctrl while the map/editor chrome has focus. Cut replaces the selected cell with $00. Shortcuts are ignored while typing in a form field.</p>
+      <p class="footer-note">X/C/V work without Ctrl while the map/editor chrome has focus. Cut replaces the selected cell with $00. Backspace also clears the selected cell to $00. Shortcuts are ignored while typing in a form field.</p>
       <h2>Edit selected byte</h2><div class="edit-row"><input id="editByte" maxlength="2" placeholder="00"><button id="applyEdit">Apply</button></div>
-      <p class="footer-note">Edits are written to an in-memory copy of the original TAP block. The block XOR checksum is recalculated immediately. Original bytes remain available for reset/audit.</p></section>
-    <section><h2>Export</h2><div class="button-grid"><button id="exportTap">Modified TAP</button><button id="exportPatch">Patch JSON</button><button id="exportBlock">Raw block</button><button id="exportFloor">Raw floor</button><button id="exportJson">Tower JSON</button><button id="resetAll">Reset all</button></div>
+      <p class="footer-note">Edits are written to an in-memory copy of the original tape data block. The Spectrum XOR parity byte is recalculated immediately. TAP/TZX record lengths and TZX timing metadata remain untouched.</p></section>
+    <section><h2>Export</h2><div class="button-grid"><button id="exportTap">Modified tape</button><button id="exportPatch">Patch JSON</button><button id="exportBlock">Raw block</button><button id="exportFloor">Raw floor</button><button id="exportJson">Tower JSON</button><button id="resetAll">Reset all</button></div>
       <h2>Changes (<span id="changeCount">0</span>)</h2><ul id="changes" class="changes"><li>No edits.</li></ul></section>
   </aside>
 </div>

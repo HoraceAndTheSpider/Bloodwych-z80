@@ -59,3 +59,18 @@ When a descriptor has `width=height=0`, its offset can still point beyond the la
 ## Tile interpretation policy
 
 The viewer uses exact tile meanings only where already correlated by the user, and labels broader patterns as inferred. It does **not** include wooden-wall types; these are not part of the ZX version findings.
+
+## 2026-09-08 — TZX resolves fixed loader length
+
+The supplied `Bloodwych - Level Data.tzx` is TZX v1.10 and contains a text-description block followed by ten `$10` Standard Speed Data blocks. Every Bloodwych block `d` through `m` is exactly 2253 bytes: one flag byte, `$08CB` (2251) data bytes, and one Spectrum XOR parity byte. This exactly matches the Z80 level-loader's fixed `LD DE,$08CB` before its ROM tape-load call.
+
+The previously supplied combined TAP does **not** preserve all of those bytes. Relative to the TZX:
+
+- `d`, `g`, `h`, `i`, `j`, `k`, `l` are complete/equal;
+- TAP `e` is only 807 bytes instead of 2253;
+- TAP `f` is 1861 bytes instead of 2253;
+- TAP `m` is 1574 bytes instead of 2253.
+
+For each shortened TAP block, bytes up to its penultimate byte match the TZX, while the TAP's final byte is already its parity byte at a point where the TZX continues with real level data. Therefore these are genuine shortened tape records, not merely trailing-FF trimming. In `e`, the shortening cuts into floors declared by the descriptor table.
+
+This resolves the earlier apparent contradiction between the fixed loader size and the TAP. For reverse engineering and level editing, the Level Data TZX should now be treated as the authoritative supplied tape source. The combined TAP remains useful as a compatibility/reference image, but stricter emulator rejection is unsurprising.

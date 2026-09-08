@@ -1,0 +1,78 @@
+Bloodwych [ZX Spectrum].TAP: TAP, 69387 bytes
+data 00: file $00002, len   19, flag $00, xor OK
+data 01: file $00017, len  129, flag $FF, xor OK
+data 02: file $0009A, len   19, flag $00, xor OK
+data 03: file $000AF, len 6914, flag $FF, xor OK
+data 04: file $01BB3, len   19, flag $00, xor OK
+data 05: file $01BC8, len 42242, flag $FF, xor OK
+data 06: file $0C0CC, len 2253, flag   d, xor OK
+  d Keeps
+    F0: 15x15 rel $0000 align +2,2 -> complete
+    F1: 19x19 rel $00E1 align +0,0 -> complete
+    F2: 19x19 rel $024A align +0,0 -> complete
+    F3:  0x0  rel $0403 align +0,0 -> unused
+    F4:  0x0  rel $0417 align +0,0 -> unused
+data 07: file $0C99B, len  807, flag   e, xor OK
+  e Serpents
+    F0: 10x6  rel $0000 align +15,0 -> complete
+    F1: 21x21 rel $003C align +0,0 -> complete
+    F2: 17x17 rel $01F5 align +2,2 -> PARTIAL 240/289
+    F3: 15x15 rel $0316 align +3,3 -> PARTIAL 0/225
+    F4:  0x0  rel $049C align +0,0 -> unused
+data 08: file $0CCC4, len 1861, flag   f, xor OK
+  f Serpent2
+    F0: 15x15 rel $0000 align +0,0 -> complete
+    F1: 15x15 rel $00E1 align +0,0 -> complete
+    F2: 15x15 rel $01C2 align +0,0 -> complete
+    F3: 13x13 rel $02A3 align +1,1 -> complete
+    F4: 13x13 rel $034C align +1,1 -> complete
+data 09: file $0D40B, len 2253, flag   g, xor OK
+  g Moons
+    F0: 12x12 rel $0000 align +4,4 -> complete
+    F1: 21x21 rel $0090 align +0,0 -> complete
+    F2: 21x21 rel $0249 align +0,0 -> complete
+    F3:  0x0  rel $03C3 align +0,0 -> unused
+    F4:  0x0  rel $04E4 align +0,0 -> unused
+data 10: file $0DCDA, len 2253, flag   h, xor OK
+  h Moon2
+    F0: 19x19 rel $0000 align +0,0 -> complete
+    F1: 19x19 rel $0169 align +0,0 -> complete
+    F2: 17x17 rel $02D2 align +1,1 -> complete
+    F3:  5x5  rel $03F3 align +8,8 -> complete
+    F4:  0x0  rel $0444 align +0,0 -> unused
+data 11: file $0E5A9, len 2253, flag   i, xor OK
+  i Dragons
+    F0: 27x27 rel $0000 align +0,3 -> complete
+    F1: 17x17 rel $02D9 align +5,8 -> complete
+    F2:  0x0  rel $03FA align +0,0 -> unused
+    F3:  0x0  rel $051B align +0,0 -> unused
+    F4:  0x0  rel $05C4 align +0,0 -> unused
+data 12: file $0EE78, len 2253, flag   j, xor OK
+  j Dragon2
+    F0: 19x19 rel $0000 align +0,0 -> complete
+    F1: 17x17 rel $0169 align +1,1 -> complete
+    F2: 13x13 rel $028A align +3,3 -> complete
+    F3: 11x11 rel $0333 align +4,4 -> complete
+    F4:  7x6  rel $03AC align +7,6 -> complete
+data 13: file $0F747, len 2253, flag   k, xor OK
+  k Archaus
+    F0: 21x21 rel $0000 align +0,0 -> complete
+    F1: 21x21 rel $01B9 align +0,0 -> complete
+    F2:  0x0  rel $0372 align +0,0 -> unused
+    F3:  0x0  rel $052B align +0,0 -> unused
+    F4:  0x0  rel $0690 align +0,0 -> unused
+data 14: file $10016, len 2253, flag   l, xor OK
+  l Chaos2
+    F0: 17x21 rel $0000 align +0,0 -> complete
+    F1: 15x21 rel $0165 align +0,0 -> complete
+    F2: 13x21 rel $02A0 align +0,0 -> complete
+    F3:  9x9  rel $03B1 align +2,2 -> complete
+    F4:  5x2  rel $0402 align +4,4 -> complete
+data 15: file $108E5, len 1574, flag   m, xor OK
+  m Zendiks
+    F0: 19x19 rel $0000 align +0,0 -> complete
+    F1: 19x19 rel $0169 align +0,0 -> complete
+    F2: 17x17 rel $02D2 align +1,1 -> complete
+    F3:  0x0  rel $03F3 align +0,0 -> unused
+    F4:  0x0  rel $05A4 align +0,0 -> unused
+Bloodwych d-m blocks found: 10

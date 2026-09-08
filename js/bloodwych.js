@@ -39,6 +39,14 @@
     if (!(id in BLOCK_NAMES)) return null;
     if (block.raw.length < FLOOR_DATA_BASE + 1) throw new Error(`Custom block ${id} is too short`);
 
+    // The first six loaded bytes are the two player entry positions:
+    // P1 X/Y/floor then P2 X/Y/floor. This is confirmed by Keeps ($04,$0E,$01 / $06,$0E,$01)
+    // matching the known N4/N6 floor-1 starts.
+    const playerStarts = [
+      { player: 1, x: block.raw[1], y: block.raw[2], floorIndex: block.raw[3] },
+      { player: 2, x: block.raw[4], y: block.raw[5], floorIndex: block.raw[6] }
+    ];
+
     const floors = [];
     for (let i = 0; i < FLOOR_COUNT; i++) {
       const d = parseDescriptor(block.raw, i);
@@ -84,6 +92,7 @@
       blockFileOffset: block.fileOffset,
       blockLength: block.raw.length,
       checksumValid: block.checksumValid,
+      playerStarts,
       floors,
       rawHeader: block.raw.slice(0, FLOOR_DATA_BASE),
       switchCount: switchIndex
@@ -109,6 +118,7 @@
     const value = block.raw[blockOffset];
     const original = block.originalRaw[blockOffset];
     const switchEntry = floor.switches.find(s => s.cellIndex === idx) || null;
+    const playerStarts = (tower.playerStarts || []).filter(p => p.floorIndex === floor.floorIndex && p.x === x && p.y === y);
     return {
       x, y, index: idx,
       globalX: x + floor.xOffset,
@@ -119,6 +129,7 @@
       original,
       changed: value !== original,
       tile: BWTiles.decode(value),
+      playerStarts,
       switchSequence: switchEntry ? switchEntry.sequence : null
     };
   }

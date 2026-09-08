@@ -30,8 +30,8 @@
   add(0x53, 'switch', 'Switch', 'user-confirmed', { facing: 'S' });
   add(0x5b, 'switch', 'Switch', 'user-confirmed', { facing: 'W' });
 
-  add(0x29, 'ladder-up', 'Ladder up', 'user-confirmed', { orientation: 'EW' });
-  add(0x31, 'ladder-down', 'Ladder down', 'user-confirmed', { orientation: 'EW' });
+  add(0x29, 'ladder-up', 'Ladder up', 'user-confirmed', { note: 'Orientation, if encoded, is not yet confirmed.' });
+  add(0x31, 'ladder-down', 'Ladder down', 'user-confirmed', { note: 'Orientation, if encoded, is not yet confirmed.' });
 
   // Exact door codes explicitly identified by the user.
   add(0x3a, 'door', 'Door, lock 1', 'user-confirmed', { orientation: 'EW', lockId: 1 });
@@ -80,8 +80,8 @@
     }
 
     // Directional ladder family inferred from confirmed $29/$31.
-    if (value === 0x21) return { value, kind: 'ladder-up', label: 'Ladder up', orientation: 'NS', confidence: 'inferred' };
-    if (value === 0x39) return { value, kind: 'ladder-down', label: 'Ladder down', orientation: 'NS', confidence: 'inferred' };
+    if (value === 0x21) return { value, kind: 'ladder-up', label: 'Possible ladder up variant', confidence: 'inferred', note: 'Relationship to $29 is inferred; orientation is not yet confirmed.' };
+    if (value === 0x39) return { value, kind: 'ladder-down', label: 'Possible ladder down variant', confidence: 'inferred', note: 'Relationship to $31 is inferred; orientation is not yet confirmed.' };
 
     return {
       value, kind: 'unknown', label: `Unknown $${value.toString(16).toUpperCase().padStart(2, '0')}`,

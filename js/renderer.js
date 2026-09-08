@@ -102,8 +102,10 @@
   }
   function modernDoor(ctx,px,py,s,t){
     modernBase(ctx,px,py,s,'#F5E7D9');ctx.fillStyle=MODERN.door;
-    if(t.orientation==='NS') ctx.fillRect(px+s*.36,py+s*.08,s*.28,s*.84);
-    else ctx.fillRect(px+s*.08,py+s*.36,s*.84,s*.28);
+    // A N/S door spans east-west across the map square; an E/W door spans north-south.
+    // This matches the AMOS view and the in-game passage axis, not the bar's own long axis.
+    if(t.orientation==='NS') ctx.fillRect(px+s*.08,py+s*.36,s*.84,s*.28);
+    else ctx.fillRect(px+s*.36,py+s*.08,s*.28,s*.84);
     if(t.lockId!=null && t.lockId>0){ctx.fillStyle=MODERN.doorLock;ctx.beginPath();ctx.arc(px+s*.5,py+s*.5,s*.16,0,Math.PI*2);ctx.fill();text(ctx,String(t.lockId),px+s*.5,py+s*.5,s*.32,'#4A2A0D');}
   }
   function modernFacingMarker(ctx,px,py,s,facing,colour){
@@ -135,14 +137,15 @@
   function amigaDoor(ctx,px,py,s,t){
     const lockPalette=[3,9,1,6,13,12,7,14];
     const lock=t.lockId!=null?lockPalette[Math.min(t.lockId,7)]:null;
+    const closed = t.closedBit === true || (t.closedBit == null && t.lockId != null && t.lockId > 0);
     if(t.orientation==='EW'){
       amigaRect(ctx,px,py,s,4,5,2,6,13);
       if(lock!=null) amigaRect(ctx,px,py,s,lock,7,2,2,13);
-      amigaRect(ctx,px,py,s,0,5,6,6,5);
+      if(!closed) amigaRect(ctx,px,py,s,0,5,6,6,5);
     }else{
       amigaRect(ctx,px,py,s,4,1,6,15,5);
       if(lock!=null) amigaRect(ctx,px,py,s,lock,1,7,15,2);
-      amigaRect(ctx,px,py,s,0,5,6,7,5);
+      if(!closed) amigaRect(ctx,px,py,s,0,5,6,7,5);
     }
   }
   function amigaDirectionalFurniture(ctx,px,py,s,t,kind){
@@ -156,8 +159,12 @@
   function amigaLadder(ctx,px,py,s,up){
     const colour=up?3:2,scale=s/16;ctx.fillStyle=AMIGA_PALETTE[0];ctx.fillRect(px,py,s,s);
     ctx.fillStyle=AMIGA_PALETTE[colour];
-    if(up){for(const y of [2,6,10])ctx.fillRect(px+2*scale,py+y*scale,12*scale,2*scale);} else {for(const y of [4,8,12])ctx.fillRect(px+2*scale,py+y*scale,12*scale,2*scale);}
-    ctx.strokeStyle=AMIGA_PALETTE[1];ctx.lineWidth=Math.max(1,scale);ctx.strokeRect(px+1*scale,py+1*scale,14*scale,14*scale);
+    // ZX feature is a ladder, not the Amiga stair tile: two slim rails with short rungs.
+    // Keep it deliberately narrow so it cannot be mistaken for the old stair icon.
+    ctx.fillRect(px+5*scale,py+2*scale,1.5*scale,12*scale);
+    ctx.fillRect(px+9.5*scale,py+2*scale,1.5*scale,12*scale);
+    for(const y of [4,7,10,13]) ctx.fillRect(px+6*scale,py+y*scale,4.5*scale,1*scale);
+    text(ctx,up?'↑':'↓',px+s*.5,py+s*.5,s*.22,AMIGA_PALETTE[14]);
   }
   function drawAmigaCell(ctx,px,py,s,cell){
     const t=cell.tile;ctx.fillStyle=AMIGA_PALETTE[0];ctx.fillRect(px,py,s,s);
@@ -189,7 +196,7 @@
     canvas.width=marginLeft+gridW*s+8;
     canvas.height=marginTop+gridH*s+8;
     const ctx=canvas.getContext('2d');
-    const bg=style==='modern'?'#D7E0E7':'#000';
+    const bg=style==='modern'?'#D7E0E7':style==='amstrad'?'#060685':'#000';
     const coord=style==='modern'?MODERN.ink:'#ddd';
     ctx.fillStyle=bg;ctx.fillRect(0,0,canvas.width,canvas.height);
     ctx.font=`${Math.max(8,s*.3)}px ui-monospace, SFMono-Regular, Menlo, monospace`;ctx.fillStyle=coord;ctx.textAlign='center';ctx.textBaseline='middle';
@@ -206,8 +213,18 @@
 
       if(options.showGrid){ctx.strokeStyle=style==='modern'?MODERN.grid:'#202020';ctx.lineWidth=1;ctx.strokeRect(px+.5,py+.5,s-1,s-1);}
       if(options.showHex && cell.tile.kind!=='unknown') text(ctx,cell.value.toString(16).toUpperCase().padStart(2,'0'),px+2,py+s*.16,Math.max(7,s*.20),style==='modern'?'#52616D':'#aaa','left');
-      if(cell.changed){ctx.strokeStyle=style==='modern'?'#E1A600':'#ff0';ctx.lineWidth=2;ctx.strokeRect(px+2,py+2,s-4,s-4);ctx.lineWidth=1;}
       if(cell.switchSequence!=null) text(ctx,'#'+cell.switchSequence,px+s-2,py+s*.84,Math.max(7,s*.21),style==='modern'?'#006C73':'#0ff','right');
+    }
+    // Player entry markers are stored in the first six bytes of each level block.
+    for(const p of (tower.playerStarts || [])){
+      if(p.floorIndex!==floor.floorIndex || p.x<0 || p.y<0 || p.x>=floor.width || p.y>=floor.height) continue;
+      const gx=p.x+originX,gy=p.y+originY,px=marginLeft+gx*s,py=marginTop+gy*s;
+      const fill = p.player===1 ? (style==='amiga'?AMIGA_PALETTE[7]:'#2474D2') : (style==='amiga'?AMIGA_PALETTE[12]:'#D83E4B');
+      const ink = '#fff';
+      ctx.fillStyle=fill;
+      ctx.fillRect(px+s*.18,py+s*.18,s*.64,s*.64);
+      ctx.strokeStyle=ink;ctx.lineWidth=Math.max(1,s*.04);ctx.strokeRect(px+s*.18,py+s*.18,s*.64,s*.64);ctx.lineWidth=1;
+      text(ctx,`P${p.player}`,px+s*.5,py+s*.52,s*.28,ink);
     }
     if(options.selected){
       const sx=options.selected.x+originX,sy=options.selected.y+originY;
