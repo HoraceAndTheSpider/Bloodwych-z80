@@ -1,0 +1,19 @@
+PASS  authoritative source SHA-256
+PASS  parse ten complete level blocks with valid parity
+PASS  all non-empty crystal/socket records resolve through 12-bit map offsets
+PASS  authoritative towers pass companion consistency audit
+PASS  unmodified export is byte-identical
+PASS  known Stage 5 event capacities
+PASS  Archaus full and Zendik tail protected
+PASS  raw map edit changes one data byte plus affected parity only
+PASS  event semantic edit is source-offset keyed and undo-exact
+PASS  event add uses a real free slot and undo restores it
+PASS  object move maintains bit 2 without rewriting free arena tail
+PASS  object item growth consumes only newly used free bytes
+PASS  monster move preserves object flag and maintains occupancy bit 7
+PASS  team edit validates members and is undo-exact
+PASS  layout starts/progression/special locations are semantic and undo-exact
+PASS  Zendik protected ending text bytes survive unrelated edits
+PASS  semantic validators reject overflow/invalid geometry without residue
+
+Stage 5 model/export self-test complete.

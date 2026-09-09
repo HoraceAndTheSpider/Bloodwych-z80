@@ -1,237 +1,78 @@
-/* Bloodwych ZX map renderer.
- *
- * Three display styles are provided:
- *   modern  - clear, colour-coded editor view (default)
- *   amstrad - monochrome symbolic view inspired by Philip M. Taglione's CPC viewer
- *   amiga   - AMOS/Amiga-editor-inspired coloured procedural icons, adapted to
- *             the one-byte ZX map format rather than pretending the formats are identical.
+/* Shared Stage 5 map renderer. Visual styles are presentation only; all three
+ * consume the same ZX cell/event/object/monster model.
  */
-(function (global) {
+(function(global){
   'use strict';
+  const AMIGA=['#000','#444','#666','#888','#aaa','#098a28','#18c229','#003fd1','#4488ee','#7c2617','#ad3622','#e49365','#d31b20','#efd31c','#eee','#b7008a'];
+  const MOD={floor:'#f1f5f4',floor2:'#e7eeec',wall:'#343b43',wallLine:'#59636c',door:'#c9792b',switch:'#14b8a6',socket:'#7666d8',object:'#399457',monster:'#d94a55',event:'#00a7b7',special:'#8a5bd3',start1:'#2474d2',start2:'#d83e4b',grid:'#c5cdd3',ink:'#14202a'};
 
-  const AMIGA_PALETTE = [
-    '#000000','#444444','#666666','#888888','#AAAAAA','#009922','#11CC11','#0000EE',
-    '#4488EE','#882211','#BB3311','#EE9966','#DD0000','#FFDD00','#EEEEEE','#CC0088'
-  ];
+  function rowLabel(n){let s='';n++;while(n>0){n--;s=String.fromCharCode(65+n%26)+s;n=Math.floor(n/26);}return s;}
+  function text(ctx,v,x,y,size,c,align='center'){ctx.fillStyle=c;ctx.font=`${Math.max(7,size)}px ui-monospace,SFMono-Regular,Menlo,monospace`;ctx.textAlign=align;ctx.textBaseline='middle';ctx.fillText(v,x,y);}
+  function wall(ctx,x,y,s,c,line){ctx.fillStyle=c;ctx.fillRect(x,y,s,s);ctx.strokeStyle=line;ctx.lineWidth=Math.max(1,s*.035);for(let yy=y+s*.28;yy<y+s;yy+=s*.26){ctx.beginPath();ctx.moveTo(x,yy);ctx.lineTo(x+s,yy);ctx.stroke();}}
+  function ladder(ctx,x,y,s,c,up){ctx.strokeStyle=c;ctx.lineWidth=Math.max(2,s*.06);ctx.beginPath();ctx.moveTo(x+s*.32,y+s*.17);ctx.lineTo(x+s*.32,y+s*.83);ctx.moveTo(x+s*.68,y+s*.17);ctx.lineTo(x+s*.68,y+s*.83);ctx.stroke();for(let yy=.29;yy<.78;yy+=.15){ctx.beginPath();ctx.moveTo(x+s*.32,y+s*yy);ctx.lineTo(x+s*.68,y+s*yy);ctx.stroke();}text(ctx,up?'↑':'↓',x+s*.5,y+s*.52,s*.22,c);}
 
-  function rowLabel(n) {
-    let s = '';
-    n++;
-    while (n > 0) {
-      n--;
-      s = String.fromCharCode(65 + (n % 26)) + s;
-      n = Math.floor(n / 26);
-    }
-    return s;
-  }
-
-  function text(ctx, value, x, y, size, colour, align='center') {
-    ctx.fillStyle = colour;
-    ctx.font = `${Math.max(7, size)}px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
-    ctx.textAlign = align;
-    ctx.textBaseline = 'middle';
-    ctx.fillText(value, x, y);
-  }
-
-  // ---------------------------------------------------------------------------
-  // Amstrad/CPC symbolic renderer (kept as an authenticity/reference option).
-  // ---------------------------------------------------------------------------
-  function cpcDoor(ctx, x, y, s, tile) {
-    ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(1, s / 12);
-    const q = s * 0.19, gap = s * 0.06;
-    for (let r=0;r<2;r++) for(let c=0;c<2;c++) {
-      ctx.strokeRect(x+s*.22+c*(q+gap), y+s*.25+r*(q+gap), q, q);
-    }
-    if (tile.lockId != null && tile.lockId > 0) text(ctx,String(tile.lockId),x+s*.5,y+s*.5,s*.35,'#fff');
-  }
-  function cpcWall(ctx, x, y, s) {
-    ctx.strokeStyle='#fff'; ctx.lineWidth=1;
-    for (let yy=y+s*.25; yy<y+s*.8; yy+=s*.18) {
-      ctx.beginPath(); ctx.moveTo(x+s*.12, yy); ctx.lineTo(x+s*.88, yy); ctx.stroke();
-    }
-  }
-  function cpcPath(ctx, x, y, s) {
-    ctx.fillStyle='#777'; const step=Math.max(4,s*.24);
-    for(let yy=y+s*.2; yy<y+s*.85; yy+=step) for(let xx=x+s*.2; xx<x+s*.85; xx+=step) ctx.fillRect(xx,yy,1,1);
-  }
-  function cpcSwitch(ctx,x,y,s,t){
-    cpcWall(ctx,x,y,s); ctx.fillStyle='#fff'; const cx=x+s*.5,cy=y+s*.5;
-    ctx.fillRect(cx-s*.09,cy-s*.09,s*.18,s*.18); text(ctx,t.facing||'S',cx,cy,s*.26,'#000');
-  }
-  function cpcSocket(ctx,x,y,s,t){
-    cpcWall(ctx,x,y,s); ctx.strokeStyle='#fff';ctx.strokeRect(x+s*.36,y+s*.36,s*.28,s*.28);
-    text(ctx,t.facing||'',x+s*.5,y+s*.5,s*.25,'#fff');
-  }
-  function cpcLadder(ctx,x,y,s,up){
-    ctx.strokeStyle='#fff';ctx.lineWidth=1.5;
-    ctx.beginPath();ctx.moveTo(x+s*.32,y+s*.18);ctx.lineTo(x+s*.32,y+s*.82);ctx.moveTo(x+s*.68,y+s*.18);ctx.lineTo(x+s*.68,y+s*.82);ctx.stroke();
-    for(let yy=y+s*.28;yy<y+s*.78;yy+=s*.16){ctx.beginPath();ctx.moveTo(x+s*.32,yy);ctx.lineTo(x+s*.68,yy);ctx.stroke();}
-    text(ctx,up?'↑':'↓',x+s*.5,y+s*.5,s*.28,'#fff');
-  }
-  function drawAmstradCell(ctx, px, py, s, cell) {
+  function drawBase(ctx,x,y,s,cell,style,ix,iy){
     const t=cell.tile;
-    if(t.kind==='floor') cpcPath(ctx,px,py,s);
-    else if(t.kind==='wall') cpcWall(ctx,px,py,s);
-    else if(t.kind==='door') cpcDoor(ctx,px,py,s,t);
-    else if(t.kind==='switch') cpcSwitch(ctx,px,py,s,t);
-    else if(t.kind==='socket') cpcSocket(ctx,px,py,s,t);
-    else if(t.kind==='ladder-up') cpcLadder(ctx,px,py,s,true);
-    else if(t.kind==='ladder-down') cpcLadder(ctx,px,py,s,false);
-    else if(t.kind==='monster') text(ctx,'M',px+s*.5,py+s*.54,s*.45,'#fff');
-    else if(t.kind==='pad') {cpcPath(ctx,px,py,s);ctx.strokeStyle='#fff';ctx.strokeRect(px+s*.28,py+s*.28,s*.44,s*.44);}
-    else if(t.kind==='object') {cpcPath(ctx,px,py,s);text(ctx,'O',px+s*.5,py+s*.54,s*.42,'#fff');}
-    else {ctx.fillStyle='#333';ctx.fillRect(px+s*.12,py+s*.12,s*.76,s*.76);text(ctx,'$'+cell.value.toString(16).toUpperCase().padStart(2,'0'),px+s*.5,py+s*.54,s*.28,'#fff');}
-  }
-
-  // ---------------------------------------------------------------------------
-  // Modern editor renderer. This is deliberately not an attempt to emulate
-  // either 8-bit game: it is designed to make topology and special cells obvious.
-  // ---------------------------------------------------------------------------
-  const MODERN = {
-    floor:'#F1F5F4', floorAlt:'#E7EEEC', wall:'#343B43', wallLine:'#515C67',
-    door:'#C9792B', doorLock:'#FFE0A8', switch:'#14B8A6', socket:'#7C6FDB',
-    monster:'#D94A55', pad:'#D9AA20', object:'#4A9B61', ladder:'#3977C3',
-    unknown:'#A83DA8', grid:'#C5CDD3', ink:'#14202A', coord:'#CBD6DE'
-  };
-  function modernBase(ctx,px,py,s,fill){ctx.fillStyle=fill;ctx.fillRect(px,py,s,s);}
-  function modernWall(ctx,px,py,s){
-    modernBase(ctx,px,py,s,MODERN.wall);ctx.strokeStyle=MODERN.wallLine;ctx.lineWidth=Math.max(1,s*.035);
-    for(let yy=py+s*.27;yy<py+s;yy+=s*.26){ctx.beginPath();ctx.moveTo(px,yy);ctx.lineTo(px+s,yy);ctx.stroke();}
-    ctx.beginPath();ctx.moveTo(px+s*.5,py);ctx.lineTo(px+s*.5,py+s*.27);ctx.stroke();
-    ctx.beginPath();ctx.moveTo(px+s*.27,py+s*.27);ctx.lineTo(px+s*.27,py+s*.53);ctx.moveTo(px+s*.74,py+s*.27);ctx.lineTo(px+s*.74,py+s*.53);ctx.stroke();
-  }
-  function modernDoor(ctx,px,py,s,t){
-    modernBase(ctx,px,py,s,'#F5E7D9');ctx.fillStyle=MODERN.door;
-    // A N/S door spans east-west across the map square; an E/W door spans north-south.
-    // This matches the AMOS view and the in-game passage axis, not the bar's own long axis.
-    if(t.orientation==='NS') ctx.fillRect(px+s*.08,py+s*.36,s*.84,s*.28);
-    else ctx.fillRect(px+s*.36,py+s*.08,s*.28,s*.84);
-    if(t.lockId!=null && t.lockId>0){ctx.fillStyle=MODERN.doorLock;ctx.beginPath();ctx.arc(px+s*.5,py+s*.5,s*.16,0,Math.PI*2);ctx.fill();text(ctx,String(t.lockId),px+s*.5,py+s*.5,s*.32,'#4A2A0D');}
-  }
-  function modernFacingMarker(ctx,px,py,s,facing,colour){
-    const c={N:[.5,.18],E:[.82,.5],S:[.5,.82],W:[.18,.5]}[facing]||[.5,.5];
-    ctx.fillStyle=colour;ctx.beginPath();ctx.arc(px+s*c[0],py+s*c[1],Math.max(2,s*.08),0,Math.PI*2);ctx.fill();
-  }
-  function drawModernCell(ctx,px,py,s,cell,x,y){
-    const t=cell.tile; modernBase(ctx,px,py,s,((x+y)&1)?MODERN.floorAlt:MODERN.floor);
-    if(t.kind==='wall') modernWall(ctx,px,py,s);
-    else if(t.kind==='door') modernDoor(ctx,px,py,s,t);
-    else if(t.kind==='switch') {modernWall(ctx,px,py,s);ctx.fillStyle=MODERN.switch;ctx.fillRect(px+s*.34,py+s*.34,s*.32,s*.32);modernFacingMarker(ctx,px,py,s,t.facing,'#E9FFFC');}
-    else if(t.kind==='socket') {modernWall(ctx,px,py,s);ctx.strokeStyle=MODERN.socket;ctx.lineWidth=Math.max(2,s*.08);ctx.strokeRect(px+s*.33,py+s*.33,s*.34,s*.34);modernFacingMarker(ctx,px,py,s,t.facing,'#EEEAFE');}
-    else if(t.kind==='ladder-up'||t.kind==='ladder-down') {ctx.strokeStyle=MODERN.ladder;ctx.lineWidth=Math.max(2,s*.065);ctx.strokeRect(px+s*.30,py+s*.18,s*.40,s*.64);for(let yy=.30;yy<.72;yy+=.15){ctx.beginPath();ctx.moveTo(px+s*.30,py+s*yy);ctx.lineTo(px+s*.70,py+s*yy);ctx.stroke();}text(ctx,t.kind==='ladder-up'?'↑':'↓',px+s*.5,py+s*.5,s*.30,MODERN.ladder);}
-    else if(t.kind==='monster') {ctx.fillStyle=MODERN.monster;ctx.beginPath();ctx.arc(px+s*.5,py+s*.5,s*.28,0,Math.PI*2);ctx.fill();text(ctx,'M',px+s*.5,py+s*.52,s*.34,'#fff');}
-    else if(t.kind==='pad') {ctx.fillStyle='#FFF3C4';ctx.fillRect(px+s*.16,py+s*.16,s*.68,s*.68);ctx.strokeStyle=MODERN.pad;ctx.lineWidth=Math.max(2,s*.06);ctx.strokeRect(px+s*.22,py+s*.22,s*.56,s*.56);text(ctx,'P',px+s*.5,py+s*.51,s*.28,'#705300');}
-    else if(t.kind==='object') {ctx.fillStyle=MODERN.object;ctx.fillRect(px+s*.23,py+s*.23,s*.54,s*.54);text(ctx,'O',px+s*.5,py+s*.52,s*.31,'#fff');}
-    else if(t.kind==='unknown') {ctx.fillStyle='#F6E5F6';ctx.fillRect(px+s*.08,py+s*.08,s*.84,s*.84);ctx.strokeStyle=MODERN.unknown;ctx.lineWidth=Math.max(1,s*.05);ctx.strokeRect(px+s*.08,py+s*.08,s*.84,s*.84);text(ctx,'$'+cell.value.toString(16).toUpperCase().padStart(2,'0'),px+s*.5,py+s*.51,s*.25,MODERN.unknown);}
-  }
-
-  // ---------------------------------------------------------------------------
-  // AMOS/Amiga editor-inspired rendering. Geometry and palette are adapted from
-  // Bloodwych-68k/tools/map_editor/render.py. The ZX map encoding is different,
-  // so only visually equivalent concepts are translated here.
-  // ---------------------------------------------------------------------------
-  function amigaRect(ctx,px,py,s,colour,x,y,w,h){
-    const scale=s/16;ctx.fillStyle=AMIGA_PALETTE[colour];ctx.fillRect(px+x*scale,py+y*scale,w*scale,h*scale);
-  }
-  function amigaWall(ctx,px,py,s){amigaRect(ctx,px,py,s,4,1,2,15,13);}
-  function amigaDoor(ctx,px,py,s,t){
-    const lockPalette=[3,9,1,6,13,12,7,14];
-    const lock=t.lockId!=null?lockPalette[Math.min(t.lockId,7)]:null;
-    const closed = t.closedBit === true || (t.closedBit == null && t.lockId != null && t.lockId > 0);
-    if(t.orientation==='EW'){
-      amigaRect(ctx,px,py,s,4,5,2,6,13);
-      if(lock!=null) amigaRect(ctx,px,py,s,lock,7,2,2,13);
-      if(!closed) amigaRect(ctx,px,py,s,0,5,6,6,5);
-    }else{
-      amigaRect(ctx,px,py,s,4,1,6,15,5);
-      if(lock!=null) amigaRect(ctx,px,py,s,lock,1,7,15,2);
-      if(!closed) amigaRect(ctx,px,py,s,0,5,6,7,5);
+    if(style==='modern'){
+      ctx.fillStyle=((ix+iy)&1)?MOD.floor2:MOD.floor;ctx.fillRect(x,y,s,s);
+      if(t.baseType===3)wall(ctx,x,y,s,MOD.wall,MOD.wallLine);
+      else if(t.baseType===2){ctx.fillStyle='#f5e7d9';ctx.fillRect(x,y,s,s);ctx.fillStyle=MOD.door;if(t.orientation==='EW')ctx.fillRect(x+s*.08,y+s*.36,s*.84,s*.28);else ctx.fillRect(x+s*.36,y+s*.08,s*.28,s*.84);}
+      if(t.kind==='switch'){ctx.fillStyle=MOD.switch;ctx.fillRect(x+s*.34,y+s*.34,s*.32,s*.32);text(ctx,t.facing||'',x+s*.5,y+s*.5,s*.2,'#fff');}
+      else if(t.kind==='socket'){ctx.strokeStyle=MOD.socket;ctx.lineWidth=Math.max(2,s*.07);ctx.strokeRect(x+s*.34,y+s*.34,s*.32,s*.32);text(ctx,t.facing||'',x+s*.5,y+s*.5,s*.18,MOD.socket);}
+      else if(t.kind==='pad'){ctx.strokeStyle='#b78a0a';ctx.lineWidth=Math.max(2,s*.06);ctx.strokeRect(x+s*.22,y+s*.22,s*.56,s*.56);}
+      else if(t.kind==='ladder-up'||t.kind==='ladder-down')ladder(ctx,x,y,s,'#3977c3',t.kind==='ladder-up');
+      return;
     }
-  }
-  function amigaDirectionalFurniture(ctx,px,py,s,t,kind){
-    amigaWall(ctx,px,py,s);
-    const colour=kind==='switch'?14:6,inner=kind==='socket'?0:15;
-    const scale=s/16;let x=7,y=2,w=2,h=4;
-    if(t.facing==='E'){x=11;y=6;w=4;h=2;} else if(t.facing==='S'){x=7;y=10;w=2;h=4;} else if(t.facing==='W'){x=1;y=6;w=4;h=2;}
-    ctx.fillStyle=AMIGA_PALETTE[colour];ctx.fillRect(px+x*scale,py+y*scale,w*scale,h*scale);
-    if(kind==='socket'){ctx.fillStyle=AMIGA_PALETTE[inner];ctx.fillRect(px+(x+1)*scale,py+(y+1)*scale,Math.max(scale,w*scale-2*scale),Math.max(scale,h*scale-2*scale));}
-  }
-  function amigaLadder(ctx,px,py,s,up){
-    const colour=up?3:2,scale=s/16;ctx.fillStyle=AMIGA_PALETTE[0];ctx.fillRect(px,py,s,s);
-    ctx.fillStyle=AMIGA_PALETTE[colour];
-    // ZX feature is a ladder, not the Amiga stair tile: two slim rails with short rungs.
-    // Keep it deliberately narrow so it cannot be mistaken for the old stair icon.
-    ctx.fillRect(px+5*scale,py+2*scale,1.5*scale,12*scale);
-    ctx.fillRect(px+9.5*scale,py+2*scale,1.5*scale,12*scale);
-    for(const y of [4,7,10,13]) ctx.fillRect(px+6*scale,py+y*scale,4.5*scale,1*scale);
-    text(ctx,up?'↑':'↓',px+s*.5,py+s*.5,s*.22,AMIGA_PALETTE[14]);
-  }
-  function drawAmigaCell(ctx,px,py,s,cell){
-    const t=cell.tile;ctx.fillStyle=AMIGA_PALETTE[0];ctx.fillRect(px,py,s,s);
-    if(t.kind==='floor') return;
-    if(t.kind==='wall') amigaWall(ctx,px,py,s);
-    else if(t.kind==='door') amigaDoor(ctx,px,py,s,t);
-    else if(t.kind==='switch') amigaDirectionalFurniture(ctx,px,py,s,t,'switch');
-    else if(t.kind==='socket') amigaDirectionalFurniture(ctx,px,py,s,t,'socket');
-    else if(t.kind==='ladder-up') amigaLadder(ctx,px,py,s,true);
-    else if(t.kind==='ladder-down') amigaLadder(ctx,px,py,s,false);
-    else if(t.kind==='pad') amigaRect(ctx,px,py,s,6,3,3,10,10);
-    else if(t.kind==='object') {amigaRect(ctx,px,py,s,5,3,3,10,10);text(ctx,'O',px+s*.5,py+s*.52,s*.30,AMIGA_PALETTE[14]);}
-    else if(t.kind==='monster') {amigaRect(ctx,px,py,s,12,3,3,10,10);text(ctx,'M',px+s*.5,py+s*.52,s*.30,AMIGA_PALETTE[14]);}
-    else {amigaRect(ctx,px,py,s,15,2,2,12,12);text(ctx,'$'+cell.value.toString(16).toUpperCase().padStart(2,'0'),px+s*.5,py+s*.52,s*.23,AMIGA_PALETTE[14]);}
+    if(style==='amstrad'){
+      ctx.fillStyle='#000';ctx.fillRect(x,y,s,s);ctx.strokeStyle='#fff';ctx.lineWidth=1;
+      if(t.baseType===3){for(let yy=y+s*.28;yy<y+s*.8;yy+=s*.2){ctx.beginPath();ctx.moveTo(x+s*.12,yy);ctx.lineTo(x+s*.88,yy);ctx.stroke();}}
+      else if(t.baseType===2){if(t.orientation==='EW')ctx.strokeRect(x+s*.1,y+s*.39,s*.8,s*.22);else ctx.strokeRect(x+s*.39,y+s*.1,s*.22,s*.8);}
+      else {for(let yy=y+s*.25;yy<y+s*.8;yy+=s*.25)for(let xx=x+s*.25;xx<x+s*.8;xx+=s*.25)ctx.fillRect(xx,yy,1,1);}
+      if(t.kind==='switch'||t.kind==='socket')text(ctx,t.kind==='switch'?'S':'O',x+s*.5,y+s*.52,s*.28,'#fff');
+      else if(t.kind==='pad')ctx.strokeRect(x+s*.25,y+s*.25,s*.5,s*.5);
+      else if(t.kind==='ladder-up'||t.kind==='ladder-down')ladder(ctx,x,y,s,'#fff',t.kind==='ladder-up');
+      return;
+    }
+    // Amiga/AMOS-inspired procedural presentation, adapted to ZX semantics.
+    ctx.fillStyle=AMIGA[0];ctx.fillRect(x,y,s,s);
+    if(t.baseType===3){ctx.fillStyle=AMIGA[4];ctx.fillRect(x+s/16,y+s*2/16,s*15/16,s*13/16);}
+    else if(t.baseType===2){ctx.fillStyle=AMIGA[4];if(t.orientation==='EW')ctx.fillRect(x+s/16,y+s*6/16,s*15/16,s*5/16);else ctx.fillRect(x+s*5/16,y+s*2/16,s*6/16,s*13/16);}
+    if(t.kind==='switch'){ctx.fillStyle=AMIGA[14];ctx.fillRect(x+s*.38,y+s*.38,s*.24,s*.24);}
+    else if(t.kind==='socket'){ctx.strokeStyle=AMIGA[6];ctx.lineWidth=Math.max(1,s*.07);ctx.strokeRect(x+s*.35,y+s*.35,s*.3,s*.3);}
+    else if(t.kind==='pad'){ctx.fillStyle=AMIGA[6];ctx.fillRect(x+s*.24,y+s*.24,s*.52,s*.52);}
+    else if(t.kind==='ladder-up'||t.kind==='ladder-down')ladder(ctx,x,y,s,AMIGA[t.kind==='ladder-up'?3:2],t.kind==='ladder-up');
   }
 
-  function render(canvas, tap, tower, floor, options) {
-    options=Object.assign({cellSize:28, aligned:true, showHex:false, showGrid:true, selected:null, style:'modern'},options||{});
-    const style=['modern','amstrad','amiga'].includes(options.style)?options.style:'modern';
-    const s=options.cellSize;
-    const marginLeft=style==='modern'?42:36, marginTop=style==='modern'?34:28;
-    let gridW=floor.width,gridH=floor.height,originX=0,originY=0;
-    if(options.aligned){
-      const used=tower.floors.filter(f=>f.used);
-      gridW=Math.max(...used.map(f=>f.width+f.xOffset));
-      gridH=Math.max(...used.map(f=>f.height+f.yOffset));
-      originX=floor.xOffset;originY=floor.yOffset;
-    }
-    canvas.width=marginLeft+gridW*s+8;
-    canvas.height=marginTop+gridH*s+8;
-    const ctx=canvas.getContext('2d');
-    const bg=style==='modern'?'#D7E0E7':style==='amstrad'?'#060685':'#000';
-    const coord=style==='modern'?MODERN.ink:'#ddd';
-    ctx.fillStyle=bg;ctx.fillRect(0,0,canvas.width,canvas.height);
-    ctx.font=`${Math.max(8,s*.3)}px ui-monospace, SFMono-Regular, Menlo, monospace`;ctx.fillStyle=coord;ctx.textAlign='center';ctx.textBaseline='middle';
-    for(let gx=0;gx<gridW;gx++) ctx.fillText(String(gx),marginLeft+gx*s+s*.5,marginTop*.5);
-    ctx.textAlign='right';for(let gy=0;gy<gridH;gy++) ctx.fillText(rowLabel(gy),marginLeft-6,marginTop+gy*s+s*.5);
-
-    for(let y=0;y<floor.height;y++) for(let x=0;x<floor.width;x++) {
-      const gx=x+originX,gy=y+originY,px=marginLeft+gx*s,py=marginTop+gy*s;
-      const cell=BWBloodwych.getCell(tap,tower,floor,x,y);
-      if(!cell){ctx.strokeStyle=style==='modern'?'#C34C4C':'#522';ctx.strokeRect(px+.5,py+.5,s-1,s-1);continue;}
-      if(style==='modern') drawModernCell(ctx,px,py,s,cell,x,y);
-      else if(style==='amiga') drawAmigaCell(ctx,px,py,s,cell);
-      else drawAmstradCell(ctx,px,py,s,cell);
-
-      if(options.showGrid){ctx.strokeStyle=style==='modern'?MODERN.grid:'#202020';ctx.lineWidth=1;ctx.strokeRect(px+.5,py+.5,s-1,s-1);}
-      if(options.showHex && cell.tile.kind!=='unknown') text(ctx,cell.value.toString(16).toUpperCase().padStart(2,'0'),px+2,py+s*.16,Math.max(7,s*.20),style==='modern'?'#52616D':'#aaa','left');
-      if(cell.switchSequence!=null) text(ctx,'#'+cell.switchSequence,px+s-2,py+s*.84,Math.max(7,s*.21),style==='modern'?'#006C73':'#0ff','right');
-    }
-    // Player entry markers are stored in the first six bytes of each level block.
-    for(const p of (tower.playerStarts || [])){
-      if(p.floorIndex!==floor.floorIndex || p.x<0 || p.y<0 || p.x>=floor.width || p.y>=floor.height) continue;
-      const gx=p.x+originX,gy=p.y+originY,px=marginLeft+gx*s,py=marginTop+gy*s;
-      const fill = p.player===1 ? (style==='amiga'?AMIGA_PALETTE[7]:'#2474D2') : (style==='amiga'?AMIGA_PALETTE[12]:'#D83E4B');
-      const ink = '#fff';
-      ctx.fillStyle=fill;
-      ctx.fillRect(px+s*.18,py+s*.18,s*.64,s*.64);
-      ctx.strokeStyle=ink;ctx.lineWidth=Math.max(1,s*.04);ctx.strokeRect(px+s*.18,py+s*.18,s*.64,s*.64);ctx.lineWidth=1;
-      text(ctx,`P${p.player}`,px+s*.5,py+s*.52,s*.28,ink);
-    }
-    if(options.selected){
-      const sx=options.selected.x+originX,sy=options.selected.y+originY;
-      ctx.strokeStyle=style==='modern'?'#008FA0':'#0ff';ctx.lineWidth=3;ctx.strokeRect(marginLeft+sx*s+1.5,marginTop+sy*s+1.5,s-3,s-3);ctx.lineWidth=1;
-    }
-    return {marginLeft,marginTop,originX,originY,cellSize:s,gridW,gridH,style};
+  function marker(ctx,label,x,y,s,fill,ink='#fff',corner='centre'){
+    ctx.fillStyle=fill;
+    if(corner==='br')ctx.fillRect(x+s*.62,y+s*.62,s*.32,s*.32);
+    else if(corner==='bl')ctx.fillRect(x+s*.06,y+s*.62,s*.32,s*.32);
+    else {ctx.beginPath();ctx.arc(x+s*.5,y+s*.5,s*.26,0,Math.PI*2);ctx.fill();}
+    const tx=corner==='br'?x+s*.78:corner==='bl'?x+s*.22:x+s*.5,ty=corner==='centre'?y+s*.52:y+s*.78;
+    text(ctx,label,tx,ty,s*.19,ink);
   }
 
+  function render(canvas,tape,tower,floor,options){
+    options=Object.assign({cellSize:30,aligned:true,showGrid:true,showHex:false,style:'modern',selected:null,overlays:{}},options||{});
+    const s=options.cellSize,style=['modern','amstrad','amiga'].includes(options.style)?options.style:'modern';
+    const ml=style==='modern'?42:36,mt=style==='modern'?34:28;
+    let gw=floor.width,gh=floor.height,ox=0,oy=0;
+    if(options.aligned){const used=tower.floors.filter(f=>f.used);gw=Math.max(...used.map(f=>f.width+f.xOffset));gh=Math.max(...used.map(f=>f.height+f.yOffset));ox=floor.xOffset;oy=floor.yOffset;}
+    canvas.width=ml+gw*s+8;canvas.height=mt+gh*s+8;const ctx=canvas.getContext('2d');
+    ctx.fillStyle=style==='modern'?'#d7e0e7':style==='amstrad'?'#060685':'#000';ctx.fillRect(0,0,canvas.width,canvas.height);
+    const coord=style==='modern'?MOD.ink:'#ddd';for(let gx=0;gx<gw;gx++)text(ctx,String(gx),ml+gx*s+s*.5,mt*.5,s*.27,coord);for(let gy=0;gy<gh;gy++)text(ctx,rowLabel(gy),ml-7,mt+gy*s+s*.5,s*.27,coord,'right');
+    for(let y=0;y<floor.height;y++)for(let x=0;x<floor.width;x++){
+      const px=ml+(x+ox)*s,py=mt+(y+oy)*s,c=BWBloodwych.getCell(tape,tower,floor,x,y);if(!c)continue;drawBase(ctx,px,py,s,c,style,x,y);
+      if(options.overlays.objects&&c.objectStacks.length)marker(ctx,c.objectStacks.length>1?`O${c.objectStacks.length}`:'O',px,py,s,style==='amiga'?AMIGA[5]:MOD.object,'#fff','bl');
+      if(options.overlays.monsters&&c.monsters.length)marker(ctx,c.monsters.length>1?`M${c.monsters.length}`:'M',px,py,s,style==='amiga'?AMIGA[12]:MOD.monster,'#fff','br');
+      if(options.overlays.events&&c.events.length)marker(ctx,c.events.length>1?`E${c.events.length}`:'E',px,py,s,style==='amiga'?AMIGA[8]:MOD.event,'#fff','centre');
+      if(options.showHex)text(ctx,c.value.toString(16).toUpperCase().padStart(2,'0'),px+2,py+s*.14,s*.18,style==='modern'?'#52616d':'#aaa','left');
+      if(options.showGrid){ctx.strokeStyle=style==='modern'?MOD.grid:'#202020';ctx.lineWidth=1;ctx.strokeRect(px+.5,py+.5,s-1,s-1);}
+    }
+    if(options.overlays.starts)for(const p of tower.playerStarts){if(p.floorIndex!==floor.floorIndex||p.x>=floor.width||p.y>=floor.height)continue;const px=ml+(p.x+ox)*s,py=mt+(p.y+oy)*s;ctx.fillStyle=p.player===1?MOD.start1:MOD.start2;ctx.fillRect(px+s*.18,py+s*.18,s*.64,s*.64);text(ctx,`P${p.player}`,px+s*.5,py+s*.52,s*.26,'#fff');}
+    if(options.overlays.specials&&tower.specials)for(const sp of tower.specials.crystal){if(sp.empty||!sp.source||sp.source.floorIndex!==floor.floorIndex)continue;const px=ml+(sp.source.x+ox)*s,py=mt+(sp.source.y+oy)*s;marker(ctx,`${sp.pair+1}${sp.endpoint}`,px,py,s,style==='amiga'?AMIGA[15]:MOD.special,'#fff','centre');}
+    if(options.selected){const px=ml+(options.selected.x+ox)*s,py=mt+(options.selected.y+oy)*s;ctx.strokeStyle=style==='modern'?'#008fa0':'#0ff';ctx.lineWidth=3;ctx.strokeRect(px+1.5,py+1.5,s-3,s-3);ctx.lineWidth=1;}
+    return {marginLeft:ml,marginTop:mt,originX:ox,originY:oy,cellSize:s,gridW:gw,gridH:gh,style};
+  }
   global.BWRenderer={render,rowLabel};
 })(window);

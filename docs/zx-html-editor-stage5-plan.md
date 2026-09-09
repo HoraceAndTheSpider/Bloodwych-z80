@@ -1,14 +1,12 @@
-# Bloodwych ZX HTML5 Editor — Stage 5 Implementation Plan
+# Bloodwych ZX HTML5 Editor — Stage 5 Plan
 
 ## Objective
 
-Refactor the current ZX editor to follow the cleaner organisation of the current Amiga/68k Map Viewer / Editor, while retaining ZX-specific structures, direct TZX editing and all existing map styles.
+Refactor the ZX editor to follow the cleaner organisation of the current Amiga/68k Map Viewer / Editor while retaining ZX-specific structures, direct TZX editing and all existing map styles.
 
 This milestone is a **level-data editor refactor**, not the complete game.
 
 ## Main modes
-
-Use five shared modes:
 
 1. **VIEWER**
 2. **MAPS**
@@ -16,259 +14,61 @@ Use five shared modes:
 4. **CHARACTERS / MONSTERS**
 5. **LAYOUT**
 
-All modes share the same:
+All modes share the loaded tape/project, tower, floor, selected coordinate, zoom, overlay state, undo/modified state and the same byte-exact level block.
 
-- loaded tape/project;
-- tower;
-- floor;
-- selected map coordinate;
-- zoom/pan;
-- overlay state;
-- undo/modified state;
-- underlying byte-exact level block.
+## Required Stage 5 work
 
-Do not build separate duplicate map models per tab.
+- keep the map dominant and uncluttered;
+- move offsets/confidence/Z80 detail behind **INFO / DATA**;
+- retain Modern, CPC/Amstrad and Amiga-inspired map styles;
+- reserve **3D DUNGEON VIEW** without substitute artwork;
+- replace sequential switch numbering with the unified source-offset Event model;
+- add semantic Event editing with Archaus/Zendik capacity protection;
+- add Object editing with bit-2 and fixed-arena consistency;
+- add Monster/team editing with conservative bit-7 consistency;
+- add Layout controls for floors, player starts, teleport pairs and crystal/socket records;
+- preserve unknown bytes byte-for-byte;
+- export only the modified Level Data tape, changing intended bytes and affected parity only.
 
-## Persistent header
+Do not add a combined Game+Level TZX exporter before proper Game-TZX project support exists.
 
-Keep the always-visible UI compact:
+## Event rules
 
-- source/tape;
-- tower;
-- floor;
-- map style;
-- zoom / fit;
-- mode tabs;
-- save/export;
-- **INFO / DATA**.
-
-The map remains the dominant central surface.
-
-## Map styles
-
-Retain:
-
-- **Modern** — default clarity;
-- **CPC / Amstrad** — blue background only here;
-- **Amiga / AMOS-inspired** — procedural symbolic presentation adapted to ZX data.
-
-Do not reintroduce wooden-wall semantics into the ZX model.
-
-## VIEWER
-
-Purpose: clean inspection.
-
-Overlays default off.
-
-Available/anticipated overlays:
-
-- player starts;
-- unified events;
-- object stacks;
-- monsters/teams;
-- crystal/socket special locations;
-- teleport pairs;
-- elevation/layout links.
-
-### Reserved 3D dungeon view
-
-Reserve a right-hand panel/space only:
-
-```text
-3D DUNGEON VIEW
-ZX graphics extraction / renderer pending
-```
-
-Do not use substitute/generated artwork.
-
-The eventual first-person preview must be built from graphics derived from the ZX game data.
-
-## MAPS
-
-Retain fast raw editing:
-
-- `X` cut;
-- `C` copy;
-- `V` paste;
-- `Backspace` clear to `$00`.
-
-Decode/render the map byte as a bitfield first, then layer type-specific feature, object and occupancy state.
-
-### Companion-resource warning
-
-Raw byte operations must not silently rewrite companion data.
-
-If a selected/copied/cut cell has linked records, show a compact warning, for example:
-
-```text
-This cell also has: EVENT, OBJECT STACK, MONSTER
-Raw map edit will not relocate companion records.
-```
-
-Semantic relocation belongs in the dedicated mode.
-
-## OBJECTS
-
-The level-side object structure is sufficiently identified for semantic editing.
-
-Controls:
-
-- previous/next stack;
-- find selected stack;
-- place/move here;
-- add/delete stack;
-- add/delete object;
-- object code;
-- quantity/state;
-- four mini-positions.
-
-Consistency rules:
-
-- create first stack at a cell -> set map bit 2;
-- remove last stack from a cell -> clear bit 2;
-- relocate -> update old/new map flags;
-- preserve unrelated map bits;
-- enforce the fixed 256-byte arena capacity.
-
-Do not duplicate object names/semantics prematurely. Later use Game-TZX object definitions as the authoritative shared catalogue.
-
-## CHARACTERS / MONSTERS
-
-Initial Stage 5 scope is monsters only; champions can be added when Game-TZX stats/pockets are mapped.
-
-Controls:
-
-- previous/next monster;
-- find;
-- place/move;
-- X/Y/floor;
-- rotation/mini-space;
-- team membership;
-- form;
-- base/effective level;
-- HP;
-- action/behaviour fields;
-- carried/drop object;
-- raw runtime bytes under INFO/DATA.
-
-Team editing must maintain the 10×4 team table and understand X=`$FF` secondary members.
-
-Monster semantic relocation should maintain map bit 7 even though tower initialisation may also derive/normalise occupancy from the monster list.
-
-## LAYOUT
-
-Expose:
-
-- floor width/height;
-- X/Y alignment;
-- P1 start X/Y/floor;
-- P2 start X/Y/floor;
-- progression requirement on non-final segments;
-- paired teleport locations;
-- crystal/socket special locations plus raw variant nibble;
-- layout/elevation diagnostics.
-
-Do not show Zendik `$01E` as an ordinary progression count.
-
-## Unified Event / Action model
-
-Use one internal Event model, not separate Switch and Trigger tables.
-
-Fields:
-
-- source map offset / resolved floor/X/Y;
-- action;
-- target floor/X/Y;
-- raw four-byte record.
-
-Rules:
-
-- semantic event relocation updates source offset;
-- capacity is fixed at 45 normal slots except Zendik;
+- one Event model internally, even when map presentation distinguishes switches/pads;
+- source relocation updates the stored source map offset;
+- 45 normal slots except Zendik;
 - Archaus has no spare slot;
-- Zendik slots 36-44 are protected ending-message storage and are never free.
+- Zendik slots 36-44 are protected ending-message storage.
 
-The map can still label source features as switch/pad/etc for presentation.
+## Object rules
 
-## INFO / DATA drawer
+- create first stack on a cell -> set bit 2;
+- remove final stack from a cell -> clear bit 2;
+- relocate -> maintain old/new flags without damaging unrelated cell bits;
+- enforce 256-byte arena capacity.
 
-Move technical/interpretive material out of the main editor.
+## Monster rules
 
-Show as applicable:
-
-```text
-coordinate
-raw cell byte
-base type / flag breakdown
-original / modified value
-loaded-data offset
-TZX block/file offset
-linked event
-linked object stacks
-linked monster/team
-special crystal/teleport record
-raw companion bytes
-evidence status
-Z80 address/routine notes
-```
-
-This drawer is also where unresolved fields remain visible without cluttering the normal workflow.
-
-## Save/export
-
-Retain byte-exact edit-session principles:
-
-- source remains immutable;
-- modified state separate;
-- undo/reset;
-- untouched bytes preserved;
-- only affected Spectrum XOR parity recalculated;
-- export same tape format for level-side edits.
-
-## Combined TZX direction
-
-Do **not** implement the combined Game+Level export before Game-TZX editing exists, but design the project/session layer so it can later hold both sides.
-
-Later export choices:
-
-- Game TZX;
-- Level Data TZX;
-- combined TZX containing both data sets in the required order.
-
-This will be needed for champion pockets/stats and other game-side data.
-
-## CPC/C64 comparison
-
-When those files are supplied, compare:
-
-- level payload structures/layouts separately;
-- game-side/global definitions separately.
-
-Expected differences are more likely in game/global implementation data than authored level placement, but no equivalence should be assumed in code.
-
-## Recommended Stage 5 build order
-
-1. Refactor shell into the five tabs without losing current map functionality.
-2. Add INFO/DATA drawer and move interpretation out of the main UI.
-3. Keep current three map styles and correct shared state across tabs.
-4. Add unified Event model and event editor.
-5. Add Object editor with bit-2 consistency and arena capacity checks.
-6. Add Monster/team editor with bit-7 consistency.
-7. Add Layout controls for starts, floor geometry and special locations.
-8. Add 3D-view placeholder only.
-9. Add validation/audit panel for companion-data inconsistencies.
-10. Package as the next downloadable editor milestone and document remaining limitations.
+- maintain 10×4 team rows;
+- understand X=`$FF` secondary members;
+- semantic positioned moves maintain map bit 7 conservatively;
+- preserve unproven runtime bytes.
 
 ## Acceptance checks
 
-Stage 5 should not be considered complete unless:
+Stage 5 is accepted when:
 
-- switching tabs preserves tower/floor/cursor/zoom;
-- raw map edit behavior from Stage 4 still works;
-- original Level Data TZX opens directly;
-- export modifies only intended data + parity;
-- object/event/monster semantic moves update their linked structures;
-- Archaus/Zendik event capacities are enforced;
-- unknown bytes remain unchanged;
-- no persistent reverse-engineering clutter dominates the map screen;
+- tab changes retain the shared working state;
+- Stage 4 raw map editing remains available;
+- the authoritative Level Data TZX opens directly;
+- no-op export is byte-identical;
+- edited export changes only intended logical bytes plus affected parity;
+- Event/Object/Monster semantic moves update linked structures;
+- Archaus/Zendik capacities are enforced;
+- unknown bytes remain untouched;
+- the map is not dominated by reverse-engineering detail;
 - the 3D panel is visibly reserved but deliberately non-functional.
+
+## Implementation status
+
+The accompanying Stage 5 package implements the above level-data scope. Game-TZX resources, champion editing, combined export and a ZX-derived 3D renderer remain deferred by design.

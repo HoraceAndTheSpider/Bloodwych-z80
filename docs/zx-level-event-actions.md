@@ -2,15 +2,13 @@
 
 ## Structure
 
-The ZX level block uses one event resource for switches, pads/triggers and other source-cell actions:
-
 ```text
 loaded $817-$8CA
 45 records × 4 bytes
 runtime base $A5D4
 ```
 
-This differs from the Amiga implementation, which uses separate switch and trigger resources.
+ZX uses one Event resource for switches, pads/triggers and other source-cell actions.
 
 ## Record format
 
@@ -18,14 +16,11 @@ This differs from the Amiga implementation, which uses separate switch and trigg
 byte 0:
   bits 0-2  source map-offset bits 8-10
   bits 3-7  action selector
-
 byte 1:
   source map-offset bits 0-7
-
 byte 2:
   bits 0-4  target X
   bits 5-7  target floor
-
 byte 3:
   target Y
 ```
@@ -40,13 +35,11 @@ target_x      = byte2 & $1F
 target_y      = byte3
 ```
 
-The source location is explicit. Sequential encounter-order switch numbering is not part of the ZX format.
+The source location is explicit. Sequential switch occurrence numbering is not part of the ZX format.
 
-## Current action table
+## Current action labels
 
-Use mechanical ZX-derived labels where gameplay wording is not fully proven:
-
-| Action | Current effect |
+| Action | Current mechanical effect |
 |---:|---|
 | `$00` | Remove stone wall |
 | `$02` | Clear target bit 4 |
@@ -71,22 +64,9 @@ Use mechanical ZX-derived labels where gameplay wording is not fully proven:
 | `$28` | Game completion |
 | `$2A` | Set target feature/orientation field to `$08` |
 
-Do not replace a mechanical label with an Amiga action name merely because the effect looks similar.
-
-## Source-cell resolution
-
-```text
-selected map cell
-  -> sequential map-data offset
-  -> matching event.source_offset
-  -> event action/target
-```
-
-A single internal Event model should serve wall switches, pads/triggers and any other source features.
+Do not substitute an Amiga action name merely because an effect looks related.
 
 ## Capacity
-
-Current normal-event usage:
 
 | Segment | Used | Free normal slots |
 |---|---:|---:|
@@ -103,32 +83,13 @@ Current normal-event usage:
 
 Non-final unused records are `$FF FF FF FF`.
 
-Archaus has no spare event capacity without a structural change.
+Archaus has no spare Event capacity. Zendik slots 36-44 are protected ending-message storage rather than free records.
 
-## Zendik special case
+## Stage 5 editing rules
 
-Slots 36-44 are reused for:
-
-```text
-ACCURSED MORTALS, I SHALL RETURN\0
-```
-
-plus the remaining `$FF` bytes.
-
-Action `$28` displays the message at runtime `$A664`.
-
-Therefore:
-
-- only slots 0-35 are normal Zendik events;
-- slots 36-44 are protected ending-message storage;
-- they must never be presented as free editor capacity.
-
-## Editor requirements
-
-- resolve by source map offset, never occurrence order;
-- allow the map to distinguish feature type visually while keeping one Event model internally;
-- semantic relocation must update `source_offset`;
-- refuse additions when no normal slot is free;
-- protect Zendik slots 36-44;
-- retain raw record bytes in INFO/DATA;
-- keep raw target fields accessible where an action's user-facing meaning remains incomplete.
+- resolve/link by `source_offset`;
+- source relocation updates the encoded source offset;
+- only even action selector values `$00-$3E` are accepted by the core model;
+- target fields retain their raw mechanical values where action meaning remains incomplete;
+- additions are refused when there is no normal free slot;
+- Zendik 36-44 cannot be edited/deleted as Events.

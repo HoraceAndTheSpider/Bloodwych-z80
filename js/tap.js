@@ -103,13 +103,31 @@
   function parseTap(arrayBuffer) { return parseTapBytes(new Uint8Array(arrayBuffer)); }
   function parseTzx(arrayBuffer) { return parseTzxBytes(new Uint8Array(arrayBuffer)); }
 
+  function logicalBlockChanged(block) {
+    if (block.raw.length !== block.originalRaw.length) return true;
+    const last = Math.max(0, block.raw.length - 1);
+    for (let i = 0; i < last; i++) if (block.raw[i] !== block.originalRaw[i]) return true;
+    return false;
+  }
+
+  // Spectrum parity is derivative only for a block whose logical bytes have
+  // actually been edited.  An untouched source block is preserved byte-for-byte,
+  // even when its supplied parity is anomalous (Serpents in the authoritative
+  // Level Data TZX is such a case).  Returning a block to its original logical
+  // contents therefore also restores the original supplied parity byte.
+  function syncBlockParity(block) {
+    if (!block.raw.length) return;
+    if (logicalBlockChanged(block)) block.raw[block.raw.length - 1] = xorChecksum(block.raw, block.raw.length - 1);
+    else block.raw[block.raw.length - 1] = block.originalRaw[block.originalRaw.length - 1];
+    block.checksumValid = xorChecksum(block.raw) === 0;
+  }
+
   function rebuildTape(tape) {
     const out = tape.originalBytes.slice();
     for (const block of tape.blocks) {
-      const raw = block.raw.slice();
-      if (raw.length) raw[raw.length - 1] = xorChecksum(raw, raw.length - 1);
-      if (raw.length !== block.length) throw new Error('Editor cannot export a tape after changing a data-block length.');
-      out.set(raw, block.fileOffset);
+      if (block.raw.length !== block.length) throw new Error('Editor cannot export a tape after changing a data-block length.');
+      syncBlockParity(block);
+      out.set(block.raw, block.fileOffset);
     }
     return out;
   }
@@ -123,9 +141,8 @@
       throw new Error(`Invalid editable block offset $${blockOffset.toString(16)}`);
     }
     b.raw[blockOffset] = value & 0xff;
-    b.raw[b.raw.length - 1] = xorChecksum(b.raw, b.raw.length - 1);
-    b.checksumValid = xorChecksum(b.raw) === 0;
+    syncBlockParity(b);
   }
 
-  global.BWTap = { parseTape, parseTap, parseTzx, rebuildTape, rebuildTap, replaceBlockByte, xorChecksum };
+  global.BWTap = { parseTape, parseTap, parseTzx, rebuildTape, rebuildTap, replaceBlockByte, xorChecksum, logicalBlockChanged, syncBlockParity };
 })(window);

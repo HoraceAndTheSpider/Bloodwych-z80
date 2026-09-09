@@ -1,16 +1,16 @@
-# Bloodwych ZX reverse-engineering documentation pack
+# Bloodwych ZX reverse-engineering / editor documentation
 
 Updated: 9 September 2026
 
-This pack records the current state of the ZX Spectrum level-data reverse engineering and the agreed next-stage HTML5 editor plan.
+This documentation accompanies the Stage 5 level-editor milestone.
 
-Files:
-
-- `zx-spectrum-level-data.md` — complete top-level `$08CB` level payload map and editing rules.
-- `zx-level-event-actions.md` — unified ZX event/action table and capacity rules.
+- `zx-spectrum-level-data.md` — current top-level `$08CB` payload map and preservation rules.
+- `zx-level-event-actions.md` — unified source-offset Event table and capacity rules.
 - `zx-monster-records.md` — current 16-byte monster/team interpretation.
-- `zx-map-runtime-initialisation.md` — current conclusion on map object/monster flags and tower-load preparation.
-- `zx-html-editor-stage5-plan.md` — implementation plan for the next editor milestone.
-- `NEW-THREAD-PROMPT.md` — prompt for continuing the work in a fresh ChatGPT thread.
+- `zx-map-runtime-initialisation.md` — map bit-2/bit-7 runtime conclusions.
+- `zx-html-editor-stage5-plan.md` — agreed Stage 5 scope and acceptance checks.
+- `zx-html-editor-stage5-implementation.md` — what this package implements and what remains deferred.
+- `zx-edit-session.md` — byte-exact edit/project model, Undo and export rules.
+- `stage5-validation.md` — reproducible validation and acceptance results.
 
-The ZX TZX/TAP and Z80 code remain authoritative. Amiga/68k, CPC and C64 versions are comparison material only and must not silently override ZX evidence.
+ZX TZX/TAP data and Z80 evidence remain authoritative. The Amiga/68k map editor is used for UI/layout reference only.

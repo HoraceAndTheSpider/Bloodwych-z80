@@ -6,12 +6,10 @@ from pathlib import Path
 
 NAMES = dict(zip('defghijklm', ['Keeps','Serpents','Serpent2','Moons','Moon2','Dragons','Dragon2','Archaus','Chaos2','Zendiks']))
 
-
 def xor_ok(raw: bytes) -> bool:
     x = 0
     for b in raw: x ^= b
     return x == 0
-
 
 def parse_tap(data: bytes):
     p=0; n=0
@@ -20,7 +18,6 @@ def parse_tap(data: bytes):
         if p+ln > len(data): raise ValueError(f'TAP block {n} overruns file')
         raw=data[p:p+ln]; yield n,p,raw,None,rec; p+=ln; n+=1
     if p != len(data): raise ValueError('Trailing TAP bytes')
-
 
 def parse_tzx(data: bytes):
     if data[:8] != b'ZXTape!\x1a': raise ValueError('Bad TZX header')
@@ -35,7 +32,6 @@ def parse_tzx(data: bytes):
             raw=data[p:p+ln]; yield n,p,raw,pause,rec; p+=ln; n+=1
         else:
             raise ValueError(f'Unsupported TZX block {bid:#04x} at {rec:#x}')
-
 
 def main(path: str) -> int:
     data=Path(path).read_bytes(); is_tzx=data[:8]==b'ZXTape!\x1a'
@@ -57,4 +53,4 @@ def main(path: str) -> int:
     return 0
 
 if __name__ == '__main__':
-    raise SystemExit(main(sys.argv[1] if len(sys.argv)>1 else 'data/Bloodwych - Level Data.tzx'))
+    raise SystemExit(main(sys.argv[1] if len(sys.argv)>1 else 'data/Bloodwych - Level Data [ZX Spectrum].tzx'))
