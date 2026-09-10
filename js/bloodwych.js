@@ -42,8 +42,8 @@
     [0x12,'Toggle floor / stone wall'], [0x14,'Create stone wall'],
     [0x16,'Set target feature/orientation field to $10'], [0x18,'Teleport F/X/Y with flash'],
     [0x1A,'Teleport F/X/Y without flash'], [0x1C,'Advance target orientation/subfield by one $08 step'],
-    [0x1E,'Toggle target bit 5'], [0x20,'Progression/entrance centre-pad path'],
-    [0x22,'Progression/entrance side-pad path'], [0x24,'Move/shift stone wall to following map byte'],
+    [0x1E,'Toggle target bit 5'], [0x20,'Tower exit / progression centre-pad path'],
+    [0x22,'Tower exit / progression side-pad path'], [0x24,'Move/shift stone wall to following map byte'],
     [0x26,'Toggle target feature/subfield state'], [0x28,'Game completion'],
     [0x2A,'Set target feature/orientation field to $08']
   ]);
@@ -179,12 +179,29 @@
     return null;
   }
 
+  // $006-$015 variant values.  0-3 are fixed by the tower-crystal
+  // continuation blocks; 4/5 are cross-correlated with the original 68k
+  // tan/blu teleport-gem location tables.  The Z80 lookup at $C80D masks the
+  // high nibble with 7, so only variants 0-7 are runtime-significant.
+  const SPECIAL_VARIANTS=[
+    {id:0,key:'serpent',name:'Serpent crystal',colour:'green'},
+    {id:1,key:'chaos',name:'Chaos crystal',colour:'yellow'},
+    {id:2,key:'dragon',name:'Dragon crystal',colour:'red'},
+    {id:3,key:'moon',name:'Moon crystal',colour:'blue'},
+    {id:4,key:'tan',name:'Tan teleport gem',colour:'tan'},
+    {id:5,key:'bluish',name:'Bluish teleport gem',colour:'blue'},
+    {id:6,key:'reserved6',name:'Reserved variant 6',colour:null},
+    {id:7,key:'reserved7',name:'Reserved variant 7',colour:null}
+  ];
+  function specialVariantInfo(variant){return SPECIAL_VARIANTS[variant&7]||SPECIAL_VARIANTS[7];}
+
   function parseSpecials(block,floors){
     const crystal=[];
     for(let i=0;i<8;i++){
       const p=0x006+i*2,lo=payloadByte(block,p),hi=payloadByte(block,p+1),empty=lo===0&&hi===0;
-      const mapOffset=((hi&0x0f)<<8)|lo,variant=(hi>>4)&0x0f;
-      crystal.push({index:i,pair:Math.floor(i/2),endpoint:(i&1)?'B':'A',loadedOffset:p,bytes:[lo,hi],empty,mapOffset,variant,source:empty?null:resolveMapOffset(floors,mapOffset)});
+      const mapOffset=((hi&0x0f)<<8)|lo,rawVariant=(hi>>4)&0x0f,variant=rawVariant&7,variantInfo=specialVariantInfo(variant);
+      crystal.push({index:i,loadedOffset:p,bytes:[lo,hi],empty,mapOffset,rawVariant,variant,variantIgnoredBit:!!(rawVariant&8),
+        variantKey:variantInfo.key,variantName:variantInfo.name,variantColour:variantInfo.colour,source:empty?null:resolveMapOffset(floors,mapOffset)});
     }
     const teleports=[];
     for(let pair=0;pair<2;pair++){
@@ -229,8 +246,9 @@
     const objectStacks=tower.objects.stacks.filter(s=>s.mapOffset===mapOffset);
     const monsters=tower.monsters.filter(m=>!m.unused&&m.x!==0xff&&m.floorIndex===floor.floorIndex&&m.x===x&&m.y===y);
     const starts=tower.playerStarts.filter(p=>p.floorIndex===floor.floorIndex&&p.x===x&&p.y===y);
+    const specialLocations=tower.specials&&tower.specials.crystal?tower.specials.crystal.filter(sp=>!sp.empty&&sp.mapOffset===mapOffset):[];
     return {x,y,index:y*floor.width+x,mapOffset,globalX:x+floor.xOffset,globalY:y+floor.yOffset,loadedOffset,blockOffset,fileOffset:block.fileOffset+blockOffset,
-      value,original,changed:value!==original,tile:BWTiles.decode(value),events,objectStacks,monsters,playerStarts:starts};
+      value,original,changed:value!==original,tile:BWTiles.decode(value),events,objectStacks,monsters,playerStarts:starts,specialLocations};
   }
 
   function writePayloadByte(session,tower,loadedOffset,value,metadata){return session.writeBlockByte(tower.blockIndex,rawOffset(loadedOffset),value,metadata);}
@@ -319,11 +337,14 @@
 
   function moveMonster(session,tower,index,targetFloor,x,y,rotation){
     const m=tower.monsters[index];if(!m||m.unused)throw new Error('Monster record not available.');
+    const targetCell=getCell(session.tape,tower,targetFloor,x,y);if(!targetCell)throw new Error('Monster destination is unavailable.');
+    if(targetCell.tile.baseType===2)throw new Error('A monster cannot be positioned on a door cell: door bits 5-7 store the lock/colour index, including bit 7.');
     const oldFloor=m.x===0xff?null:tower.floors[m.floorIndex];
     writeMonsterField(session,tower,index,0,x);writeMonsterField(session,tower,index,1,y);writeMonsterField(session,tower,index,3,targetFloor.floorIndex);if(rotation!=null)writeMonsterField(session,tower,index,2,rotation);
     if(oldFloor&&oldFloor.used){
       const other=tower.monsters.some(q=>q.index!==index&&!q.unused&&q.x!==0xff&&q.floorIndex===m.floorIndex&&q.x===m.x&&q.y===m.y);
-      if(!other)setMapFlag(session,tower,oldFloor,m.x,m.y,0x80,false,{kind:'monster-flag'});
+      const oldCell=getCell(session.tape,tower,oldFloor,m.x,m.y);
+      if(!other&&oldCell&&oldCell.tile.baseType!==2)setMapFlag(session,tower,oldFloor,m.x,m.y,0x80,false,{kind:'monster-flag'});
     }
     setMapFlag(session,tower,targetFloor,x,y,0x80,true,{kind:'monster-flag'});
   }
@@ -371,11 +392,11 @@
     integerIn(index,0,7,'Crystal/socket special index');
     const p=0x006+index*2;
     if(!enabled){writePayloadByte(session,tower,p,0,{kind:'layout-crystal-special'});writePayloadByte(session,tower,p+1,0,{kind:'layout-crystal-special'});return;}
-    integerIn(floorIndex,0,FLOOR_COUNT-1,'Special-location floor');integerIn(variant,0,15,'Special-location variant');
+    integerIn(floorIndex,0,FLOOR_COUNT-1,'Special-location floor');integerIn(variant,0,7,'Special-location variant');
     const f=tower.floors[floorIndex];if(!f||!f.used)throw new Error('Special location must reference an active floor.');
     integerIn(x,0,f.width-1,'Special-location X');integerIn(y,0,f.height-1,'Special-location Y');
     const mapOffset=mapOffsetForCell(f,x,y);if(mapOffset==null||mapOffset>0x0fff)throw new Error('Special location does not fit the 12-bit map-workspace offset.');
-    const lo=mapOffset&0xff,hi=((variant&0x0f)<<4)|((mapOffset>>8)&0x0f);
+    const lo=mapOffset&0xff,oldHi=payloadByte(session.tape.blocks[tower.blockIndex],p+1),hi=(oldHi&0x80)|((variant&7)<<4)|((mapOffset>>8)&0x0f);
     if(lo===0&&hi===0)throw new Error('$0000 is reserved for an unused crystal/socket special record. Choose another cell/variant or disable the record.');
     writePayloadByte(session,tower,p,lo,{kind:'layout-crystal-special'});writePayloadByte(session,tower,p+1,hi,{kind:'layout-crystal-special'});
   }
@@ -390,7 +411,8 @@
     }}
     const monsterCells=new Set(tower.monsters.filter(m=>!m.unused&&m.x!==0xff&&m.floorIndex<5).map(m=>`${m.floorIndex}:${m.x}:${m.y}`));
     for(const f of tower.floors){if(!f.used)continue;for(let y=0;y<f.height;y++)for(let x=0;x<f.width;x++){
-      const c=getCell(tape,tower,f,x,y);if(!c)continue;const should=monsterCells.has(`${f.floorIndex}:${x}:${y}`),has=!!(c.value&0x80);
+      const c=getCell(tape,tower,f,x,y);if(!c)continue;const should=monsterCells.has(`${f.floorIndex}:${x}:${y}`),has=c.tile.occupied;
+      if(should&&c.tile.baseType===2){issues.push(`MONSTER/DOOR CONFLICT F${f.floorIndex} ${x},${y}: bit 7 is part of the door lock/colour field and cannot be used as occupancy.`);continue;}
       // A positioned monster without bit 7 is a consistency problem for an
       // edited level.  The reverse is deliberately not treated as an error:
       // original maps contain extra stored occupancy/cache bits and tower-load
@@ -402,7 +424,7 @@
     return issues;
   }
 
-  global.BWBloodwych={BLOCK_NAMES,PAYLOAD_SIZE,FLOOR_HEADER,FLOOR_DESCRIPTOR_SIZE,FLOOR_COUNT,MAP_BASE,MAP_SIZE,TEAM_BASE,TEAM_COUNT,MONSTER_COUNT_OFFSET,MONSTER_BASE,MONSTER_COUNT_MAX,MONSTER_SIZE,OBJECT_USED_OFFSET,OBJECT_BASE,OBJECT_ARENA_SIZE,EVENT_BASE,EVENT_COUNT,ZENDIK_NORMAL_EVENT_COUNT,ACTION_LABELS,
+  global.BWBloodwych={BLOCK_NAMES,PAYLOAD_SIZE,FLOOR_HEADER,FLOOR_DESCRIPTOR_SIZE,FLOOR_COUNT,MAP_BASE,MAP_SIZE,TEAM_BASE,TEAM_COUNT,MONSTER_COUNT_OFFSET,MONSTER_BASE,MONSTER_COUNT_MAX,MONSTER_SIZE,OBJECT_USED_OFFSET,OBJECT_BASE,OBJECT_ARENA_SIZE,EVENT_BASE,EVENT_COUNT,ZENDIK_NORMAL_EVENT_COUNT,ACTION_LABELS,SPECIAL_VARIANTS,
     rawOffset,loadedToRuntime,findTowers,parseTower,getCell,mapOffsetForCell,floorForMapOffset,writePayloadByte,writeCell,setMapFlag,
     encodeEvent,writeEvent,deleteEvent,firstFreeEventSlot,moveObjectStack,addObjectStack,deleteObjectStack,replaceObjectStack,
     writeMonsterField,moveMonster,writeTeam,writeFloorDescriptor,writePlayerStart,writeProgression,writeRawPair,writeTeleportPair,writeSpecialLocation,audit,hex};

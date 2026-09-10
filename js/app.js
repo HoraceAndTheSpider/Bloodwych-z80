@@ -17,6 +17,24 @@
   function download(name,bytes,mime='application/octet-stream'){const blob=new Blob([bytes],{type:mime}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);}
   function selectedCell(){return selected&&session.tape&&tower&&floor?BWBloodwych.getCell(session.tape,tower,floor,selected.x,selected.y):null;}
   function semanticReady(){return !!(tower&&tower.semanticAvailable);}
+  function coord(x,y){return `X ${x}, Y ${y}`;}
+  function contextualFeatureLabel(c){
+    if(!c)return '';
+    if(c.tile.kind==='pad'&&c.events.length){
+      if(c.events.some(e=>e.action===0x20))return 'Tower exit / progression centre pad';
+      if(c.events.some(e=>e.action===0x22))return 'Tower exit / progression side pad';
+      if(c.events.some(e=>e.action===0x0e||e.action===0x10))return 'Vivify pad / trigger';
+      if(c.events.some(e=>e.action===0x18||e.action===0x1a))return 'Teleport pad / trigger';
+      if(c.events.some(e=>e.action===0x28))return 'Game-completion pad / trigger';
+    }
+    return c.tile.featureLabel;
+  }
+  function renderNavigation(){
+    const tb=$('towerButtons'),fb=$('floorButtons'),meta=$('mapMeta');
+    if(tb)tb.innerHTML=towers.map((t,i)=>`<button type="button" data-tower-index="${i}" class="nav-map-button ${tower&&tower.id===t.id?'active':''}">${esc(t.name)}</button>`).join('');
+    if(fb&&tower)fb.innerHTML=tower.floors.map(f=>`<button type="button" data-floor-index="${f.floorIndex}" class="floor-button ${floor&&floor.floorIndex===f.floorIndex?'active':''}" ${f.used?'':'disabled'}>${f.floorIndex}</button>`).join('');
+    if(meta&&tower&&floor)meta.innerHTML=`<strong>${esc(tower.name)}</strong><span>Floor ${floor.floorIndex}</span><span>${floor.width} × ${floor.height}</span><span>Align ${floor.xOffset}, ${floor.yOffset}</span>`;
+  }
 
   function loadBuffer(buf,label){
     try{
@@ -32,16 +50,16 @@
   function populateTowers(preferredId){
     const sel=$('tower');sel.innerHTML='';
     towers.forEach((t,i)=>{const o=document.createElement('option');o.value=String(i);o.textContent=`${t.id.toUpperCase()} — ${t.name}${t.semanticAvailable?'':' [legacy partial]'}`;sel.appendChild(o);});
-    let idx=preferredId?towers.findIndex(t=>t.id===preferredId):-1;if(idx<0)idx=0;sel.value=String(idx);selectTower(false);
+    let idx=preferredId?towers.findIndex(t=>t.id===preferredId):-1;if(idx<0)idx=0;sel.value=String(idx);selectTower(false);renderNavigation();
   }
 
   function selectTower(renderNow=true){
     tower=towers[+$('tower').value]||towers[0];if(!tower)return;
     const fs=$('floor');fs.innerHTML='';tower.floors.forEach(f=>{const o=document.createElement('option');o.value=String(f.floorIndex);const st=!f.used?'unused':f.complete?'complete':`PARTIAL ${f.availableCells}/${f.cellCount}`;o.textContent=`Floor ${f.floorIndex} — ${f.width}×${f.height} +${f.xOffset},${f.yOffset} — ${st}`;fs.appendChild(o);});
-    const first=tower.floors.find(f=>f.used)||tower.floors[0];fs.value=String(first.floorIndex);floor=first;selected=null;eventCursor=firstUsedEventSlot();objectIndex=0;monsterCursor=firstMonsterIndex();teamCursor=0;if(renderNow)renderAll();
+    const first=tower.floors.find(f=>f.used)||tower.floors[0];fs.value=String(first.floorIndex);floor=first;selected=null;eventCursor=firstUsedEventSlot();objectIndex=0;monsterCursor=firstMonsterIndex();teamCursor=0;renderNavigation();if(renderNow)renderAll();
   }
 
-  function selectFloor(){floor=tower.floors[+$('floor').value]||tower.floors[0];if(selected&&(selected.x>=floor.width||selected.y>=floor.height))selected=null;renderAll();}
+  function selectFloor(){floor=tower.floors[+$('floor').value]||tower.floors[0];if(selected&&(selected.x>=floor.width||selected.y>=floor.height))selected=null;renderNavigation();renderAll();}
 
   function refreshModel(options={}){
     if(!session.tape)return;
@@ -49,7 +67,7 @@
     towers=BWBloodwych.findTowers(session.tape);tower=towers.find(t=>t.id===tid)||towers[0];
     $('tower').value=String(towers.findIndex(t=>t.id===tower.id));
     floor=tower.floors[fi]||tower.floors.find(f=>f.used)||tower.floors[0];$('floor').value=String(floor.floorIndex);
-    selected=sel&&floor.used&&sel.x<floor.width&&sel.y<floor.height?sel:null;
+    selected=sel&&floor.used&&sel.x<floor.width&&sel.y<floor.height?sel:null;renderNavigation();
     if(!tower.events.some(e=>!e.empty&&!e.protected&&e.slot===eventCursor))eventCursor=firstUsedEventSlot();
     if(objectIndex>=tower.objects.stacks.length)objectIndex=Math.max(0,tower.objects.stacks.length-1);
     if(monsterCursor!=null&&!tower.monsters.some(m=>m.index===monsterCursor&&m.active&&!m.unused))monsterCursor=firstMonsterIndex();
@@ -70,7 +88,7 @@
 
   function modeOverlays(){
     if(mode==='viewer')return {starts:$('ovStarts').checked,events:$('ovEvents').checked,objects:$('ovObjects').checked,monsters:$('ovMonsters').checked,specials:$('ovSpecials').checked};
-    if(mode==='maps')return {starts:true,events:true,objects:true,monsters:true,specials:false};
+    if(mode==='maps')return {starts:true,events:true,objects:true,monsters:true,specials:true};
     if(mode==='objects')return {starts:false,events:false,objects:true,monsters:false,specials:false};
     if(mode==='monsters')return {starts:false,events:false,objects:false,monsters:true,specials:false};
     return {starts:true,events:false,objects:false,monsters:false,specials:true};
@@ -82,9 +100,63 @@
     renderMetrics=BWRenderer.render(canvas,session.tape,tower,floor,{cellSize:+$('zoom').value,aligned:$('aligned').checked,showGrid:$('showGrid').checked,showHex:$('showHex').checked,style,selected,overlays:modeOverlays()});
   }
 
-  function selectionText(c){if(!c)return 'Select a map cell.';return `<strong>${BWRenderer.rowLabel(c.y)}${c.x}</strong> · F${floor.floorIndex}<br>${esc(c.tile.featureLabel)}<br><span class="muted">${hex(c.value)} · ${c.events.length} event · ${c.objectStacks.length} stack · ${c.monsters.length} monster</span>`;}
-  function renderSelection(){const c=selectedCell();$('selectionSummary').innerHTML=selectionText(c);$('mapSelection').innerHTML=selectionText(c);if(c)$('editByte').value=h2(c.value);else $('editByte').value='';
-    const linked=[];if(c){if(c.events.length)linked.push('EVENT');if(c.objectStacks.length)linked.push('OBJECT STACK');if(c.monsters.length)linked.push('MONSTER');}
+  function selectionText(c){
+    if(!c)return 'Select a map cell.';
+    const special=c.specialLocations&&c.specialLocations.length?`<br><span class="special-summary">${c.specialLocations.map(sp=>esc(sp.variantName)).join(', ')}</span>`:'';
+    return `<strong>${coord(c.x,c.y)}</strong> · Floor ${floor.floorIndex}<br>${esc(contextualFeatureLabel(c))}${special}<br><span class="muted">${hex(c.value)} · ${c.events.length} event · ${c.objectStacks.length} stack · ${c.monsters.length} monster</span>`;
+  }
+
+  function renderCellProperties(){
+    const box=$('cellProperties');if(!box)return;const c=selectedCell();
+    if(!c){box.innerHTML='<p class="muted">Select a map cell.</p>';return;}
+    const t=c.tile,types=['Floor / space','Floor feature','Door','Stone wall'];
+    const typeOpts=types.map((n,i)=>`<option value="${i}" ${i===t.baseType?'selected':''}>${n}</option>`).join('');
+    let html=`<div class="property-row"><span>TYPE</span><select data-cell-prop="type">${typeOpts}</select></div>`;
+    if(t.baseType===3){
+      const wk=t.wallFeature||'other';
+      html+=`<div class="property-row"><span>FEATURE</span><select data-cell-prop="wall-kind"><option value="plain" ${wk==='plain'?'selected':''}>Plain wall</option><option value="socket" ${wk==='socket'&&!t.socketFilled?'selected':''}>Empty gem socket</option><option value="switch" ${wk==='switch'?'selected':''}>Switch</option><option value="socket-full" ${wk==='socket'&&t.socketFilled?'selected':''}>Filled crystal / gem socket</option>${wk==='other'?`<option value="other" selected>Other raw feature ${t.feature}</option>`:''}</select></div>`;
+      if(wk==='socket'||wk==='switch')html+=`<div class="property-row"><span>FACE</span><select data-cell-prop="wall-face">${['N','E','S','W'].map((n,i)=>`<option value="${i}" ${t.facing===n?'selected':''}>${n}</option>`).join('')}</select></div>`;
+    }else if(t.baseType===2){
+      const lockNames=['Unlocked','Lock 1','Lock 2','Lock 3','Lock 4','Lock 5','Lock 6','Lock 7'];
+      html+=`<div class="property-row"><span>AXIS</span><select data-cell-prop="door-axis"><option value="NS" ${t.orientation==='NS'?'selected':''}>N/S passage</option><option value="EW" ${t.orientation==='EW'?'selected':''}>E/W passage</option></select></div>`;
+      html+=`<div class="property-row"><span>STATE</span><select data-cell-prop="door-state"><option value="0" ${t.closedBit?'':'selected'}>Open</option><option value="1" ${t.closedBit?'selected':''}>Closed</option></select></div>`;
+      html+=`<div class="property-row"><span>LOCK</span><select data-cell-prop="door-lock">${lockNames.map((n,i)=>`<option value="${i}" ${t.lockId===i?'selected':''}>${n}</option>`).join('')}</select><i class="lock-swatch lock-${t.lockId||0}" title="Door lock colour"></i></div>`;
+    }else if(t.baseType===1){
+      const labels={0:'Base floor feature',1:'Floor pad / trigger',2:'Invisible pad / trigger',4:'Possible ladder-up variant',5:'Ladder up',6:'Ladder down',7:'Possible ladder-down variant'};
+      html+=`<div class="property-row"><span>FEATURE</span><select data-cell-prop="floor-feature">${Array.from({length:16},(_,i)=>`<option value="${i}" ${t.feature===i?'selected':''}>${labels[i]||`Raw feature ${hex(i,1)}`}</option>`).join('')}</select></div>`;
+    }
+    html+=`<div class="property-flags">object bit ${t.hasObject?1:0} · ${t.baseType===2?`door lock bits 5–7 = ${t.lockId}`:`occupied bit 7 = ${t.occupied?1:0}`}</div>`;
+    if(c.specialLocations&&c.specialLocations.length)html+=c.specialLocations.map(sp=>`<div class="special-link ${esc(sp.variantKey)}"><span class="special-chip"></span><strong>${esc(sp.variantName)}</strong> · special location #${sp.index+1}</div>`).join('');
+    box.innerHTML=html;
+  }
+
+  function editCellProperty(prop,val){
+    const c=selectedCell();if(!c)return;let v=c.value;
+    if(prop==='type'){
+      const base=Number(val);if(!Number.isInteger(base)||base<0||base>3)return;
+      if(base===2&&c.monsters.length){setStatus('Move the positioned monster before converting this cell to a door: door bit 7 belongs to its lock/colour field.','warn');renderCellProperties();return;}
+      const flags=(c.tile.hasObject?0x04:0)|(base!==2&&c.monsters.length?0x80:0);v=flags|base;
+    }else if(prop==='wall-kind'){
+      if((v&3)!==3||val==='other')return;const face=c.tile.facing?['N','E','S','W'].indexOf(c.tile.facing):0;
+      const base=val==='plain'?0:val==='socket'?4:val==='switch'?8:12;v=(v&0x87)|((base+Math.max(0,face))<<3);
+    }else if(prop==='wall-face'){
+      if((v&3)!==3)return;const face=Number(val)&3,base=c.tile.wallFeature==='switch'?8:c.tile.socketFilled?12:4;v=(v&0x87)|((base+face)<<3);
+    }else if(prop==='door-axis'){
+      if((v&3)!==2)return;v=val==='EW'?(v|0x08):(v&~0x08);
+    }else if(prop==='door-state'){
+      if((v&3)!==2)return;v=Number(val)?(v|0x10):(v&~0x10);
+    }else if(prop==='door-lock'){
+      if((v&3)!==2)return;v=(v&0x1f)|((Number(val)&7)<<5);
+    }else if(prop==='floor-feature'){
+      if((v&3)!==1)return;v=(v&0x87)|((Number(val)&15)<<3);
+    }else return;
+    rawMapEdit(v,`Set ${prop}`);
+  }
+
+  function renderSelection(){
+    const c=selectedCell();$('selectionSummary').innerHTML=selectionText(c);$('mapSelection').innerHTML=selectionText(c);if(c)$('editByte').value=h2(c.value);else $('editByte').value='';
+    renderCellProperties();
+    const linked=[];if(c){if(c.events.length)linked.push('EVENT');if(c.objectStacks.length)linked.push('OBJECT STACK');if(c.monsters.length)linked.push('MONSTER');if(c.specialLocations&&c.specialLocations.length)linked.push('CRYSTAL/GEM LOCATION');}
     const w=$('companionWarning');if(linked.length){w.textContent=`This cell also has: ${linked.join(', ')}. Raw map edit will not relocate companion records.`;w.classList.remove('hidden');}else w.classList.add('hidden');
   }
 
@@ -107,7 +179,7 @@
       <div class="button-row"><button data-act="event-save">SAVE EVENT</button><button data-act="event-find">FIND SOURCE</button></div>
       <div class="button-row"><button data-act="event-move">MOVE SOURCE HERE</button><button data-act="event-delete" class="danger">DELETE</button></div>`;
     } else html+='<p class="muted">No active event is selected.</p>';
-    if(c)html+=`<button data-act="event-add" ${free<=0?'disabled':''}>ADD EVENT AT ${BWRenderer.rowLabel(c.y)}${c.x}</button>`;
+    if(c)html+=`<button data-act="event-add" ${free<=0?'disabled':''}>ADD EVENT AT ${coord(c.x,c.y)}</button>`;
     box.innerHTML=html;
   }
 
@@ -161,14 +233,11 @@
     if(tower.semanticAvailable){
       html+='<hr><h3>Teleport pairs</h3><p class="note">Each four-byte record stores two direct X/Y endpoints. No floor byte is present in this level-side record, so Stage 5 does not invent one.</p>';
       tower.specials.teleports.forEach(tp=>{html+=`<div class="event-card"><div class="card-head"><strong>Pair ${tp.pair+1}</strong><label><input id="tp${tp.pair}active" type="checkbox" ${tp.empty?'':'checked'}> active</label></div><div class="editor-grid"><label>A X <input id="tp${tp.pair}ax" type="number" min="0" max="255" value="${tp.aCoord.x}"></label><label>A Y <input id="tp${tp.pair}ay" type="number" min="0" max="255" value="${tp.aCoord.y}"></label><label>B X <input id="tp${tp.pair}bx" type="number" min="0" max="255" value="${tp.bCoord.x}"></label><label>B Y <input id="tp${tp.pair}by" type="number" min="0" max="255" value="${tp.bCoord.y}"></label></div><div class="mono muted">raw ${tp.a.map(h2).join(' ')} · ${tp.b.map(h2).join(' ')}</div></div>`;});
-      html+='<button data-act="layout-teleport-save">SAVE TELEPORT PAIRS</button><hr><h3>Crystal / socket special locations</h3><p class="note">Eight entries form four pairs. Stored packing is: byte 0 plus the low nibble of byte 1 = 12-bit map-workspace offset; the high nibble of byte 1 is the raw variant. Variant meaning remains deliberately unnamed.</p>';
-      for(let pair=0;pair<4;pair++){
-        html+=`<div class="event-card"><strong>Pair ${pair+1}</strong>`;
-        for(const sp of tower.specials.crystal.filter(v=>v.pair===pair)){
-          const src=sp.source||{floorIndex:f.floorIndex,x:0,y:0};
-          html+=`<div class="special-row"><div class="card-head"><span>Endpoint ${sp.endpoint}</span><label><input id="cr${sp.index}active" type="checkbox" ${sp.empty?'':'checked'}> active</label></div><div class="editor-grid"><label>Floor <input id="cr${sp.index}f" type="number" min="0" max="4" value="${src.floorIndex}"></label><label>X <input id="cr${sp.index}x" type="number" min="0" max="255" value="${src.x}"></label><label>Y <input id="cr${sp.index}y" type="number" min="0" max="255" value="${src.y}"></label><label>Variant <input id="cr${sp.index}v" type="number" min="0" max="15" value="${sp.variant}"></label></div><div class="mono muted">raw ${sp.bytes.map(h2).join(' ')}${sp.empty?' · unused':sp.source?` · map ${hex(sp.mapOffset,3)}`:' · unresolved map offset'}</div></div>`;
-        }
-        html+='</div>';
+      html+='<button data-act="layout-teleport-save">SAVE TELEPORT PAIRS</button><hr><h3>Crystal / gem socket locations</h3><p class="note">$006–$015 is eight independent two-byte map-location records. The Z80 lookup scans them one record at a time; there is no encoded A/B pairing. Variants 0–3 are the four tower crystals; 4 is the tan teleport gem and 5 the bluish teleport gem.</p>';
+      for(const sp of tower.specials.crystal){
+        const src=sp.source||{floorIndex:f.floorIndex,x:0,y:0};
+        const variants=BWBloodwych.SPECIAL_VARIANTS.map(v=>`<option value="${v.id}" ${v.id===sp.variant?'selected':''}>${v.id} — ${esc(v.name)}</option>`).join('');
+        html+=`<div class="event-card special-card ${esc(sp.variantKey)}"><div class="card-head"><strong>Location #${sp.index+1} · ${esc(sp.variantName)}</strong><label><input id="cr${sp.index}active" type="checkbox" ${sp.empty?'':'checked'}> active</label></div><div class="editor-grid"><label>Floor <input id="cr${sp.index}f" type="number" min="0" max="4" value="${src.floorIndex}"></label><label>X <input id="cr${sp.index}x" type="number" min="0" max="255" value="${src.x}"></label><label>Y <input id="cr${sp.index}y" type="number" min="0" max="255" value="${src.y}"></label><label>Variant <select id="cr${sp.index}v">${variants}</select></label></div><div class="button-row">${sp.empty?'':`<button data-act="special-find" data-special-index="${sp.index}">FIND ON MAP</button>`}</div><div class="mono muted">raw ${sp.bytes.map(h2).join(' ')}${sp.empty?' · unused':sp.source?` · map ${hex(sp.mapOffset,3)} · ${coord(sp.source.x,sp.source.y)}`:' · unresolved map offset'}</div></div>`;
       }
       html+='<button data-act="layout-crystal-save">SAVE SPECIAL LOCATIONS</button>';
     }else html+='<p class="warning">Companion Layout structures are unavailable in this shortened legacy block. Use the Level Data TZX for Stage 5 semantic editing.</p>';
@@ -188,16 +257,16 @@
     rows+=infoRow('Source',esc(session.level.label));rows+=infoRow('Role','Level Data TZX/TAP');rows+=infoRow('Tower',`${tower.id.toUpperCase()} — ${esc(tower.name)}`);rows+=infoRow('Segment number',hex(tower.segmentNumber));rows+=infoRow('Block index',String(tower.blockIndex));rows+=infoRow('Block file offset',`<span class="mono">${hex(tower.blockFileOffset,5)}</span>`);rows+=infoRow('Spectrum parity',b.checksumValid?'<span class="tag good">valid</span>':'<span class="tag warn">INVALID</span>');
     rows+=infoRow('Stage 5 companion data',tower.semanticAvailable?'<span class="tag good">complete</span>':'<span class="tag warn">legacy partial</span>');
     if(c){
-      rows+=infoRow('Coordinate',`F${floor.floorIndex} ${BWRenderer.rowLabel(c.y)}${c.x} (local ${c.x},${c.y}; aligned ${c.globalX},${c.globalY})`);rows+=infoRow('Raw cell',`<span class="mono">${hex(c.value)}</span>${c.changed?` (original ${hex(c.original)})`:''}`);rows+=infoRow('Bit breakdown',`base ${c.tile.baseType} / bit2 object ${c.tile.hasObject?1:0} / feature ${hex(c.tile.feature,1)} / bit7 occupied ${c.tile.occupied?1:0}`);rows+=infoRow('Interpretation',esc(c.tile.featureLabel));rows+=infoRow('Evidence',`<span class="tag">${esc(c.tile.confidence)}</span>${c.tile.note?'<br>'+esc(c.tile.note):''}`);rows+=infoRow('Map workspace offset',`<span class="mono">${hex(c.mapOffset,3)}</span>`);rows+=infoRow('Loaded-data offset',`<span class="mono">${hex(c.loadedOffset,3)}</span>`);rows+=infoRow('Runtime address',`<span class="mono">${hex(BWBloodwych.loadedToRuntime(c.loadedOffset),4)}</span>`);rows+=infoRow('Tape block offset',`<span class="mono">${hex(c.blockOffset,4)}</span>`);rows+=infoRow('Absolute file offset',`<span class="mono">${hex(c.fileOffset,5)}</span>`);
+      rows+=infoRow('Coordinate',`F${floor.floorIndex} ${coord(c.x,c.y)} (aligned X ${c.globalX}, Y ${c.globalY})`);rows+=infoRow('Raw cell',`<span class="mono">${hex(c.value)}</span>${c.changed?` (original ${hex(c.original)})`:''}`);rows+=infoRow('Bit breakdown',c.tile.baseType===2?`door / bit2 object ${c.tile.hasObject?1:0} / axis ${c.tile.orientation} / closed ${c.tile.closedBit?1:0} / lock ${c.tile.lockId} (bits 5–7)`:`base ${c.tile.baseType} / bit2 object ${c.tile.hasObject?1:0} / feature ${hex(c.tile.feature,1)} / bit7 occupied ${c.tile.occupied?1:0}`);rows+=infoRow('Interpretation',esc(contextualFeatureLabel(c)));rows+=infoRow('Evidence',`<span class="tag">${esc(c.tile.confidence)}</span>${c.tile.note?'<br>'+esc(c.tile.note):''}`);rows+=infoRow('Map workspace offset',`<span class="mono">${hex(c.mapOffset,3)}</span>`);rows+=infoRow('Loaded-data offset',`<span class="mono">${hex(c.loadedOffset,3)}</span>`);rows+=infoRow('Runtime address',`<span class="mono">${hex(BWBloodwych.loadedToRuntime(c.loadedOffset),4)}</span>`);rows+=infoRow('Tape block offset',`<span class="mono">${hex(c.blockOffset,4)}</span>`);rows+=infoRow('Absolute file offset',`<span class="mono">${hex(c.fileOffset,5)}</span>`);
       rows+=infoRow('Linked Event',c.events.length?c.events.map(e=>`slot ${e.slot}: <span class="mono">${e.raw.map(h2).join(' ')}</span> — ${esc(e.actionLabel)}`).join('<br>'):'none');
       rows+=infoRow('Linked Object stacks',c.objectStacks.length?c.objectStacks.map(s=>`stack ${s.index}, pos ${s.position}, <span class="mono">${s.raw.map(h2).join(' ')}</span>`).join('<br>'):'none');
-      rows+=infoRow('Linked Monsters',c.monsters.length?c.monsters.map(m=>`record ${m.index}, form ${hex(m.form)}, raw <span class="mono">${m.raw.map(h2).join(' ')}</span>`).join('<br>'):'none');
+      rows+=infoRow('Linked Monsters',c.monsters.length?c.monsters.map(m=>`record ${m.index}, form ${hex(m.form)}, raw <span class="mono">${m.raw.map(h2).join(' ')}</span>`).join('<br>'):'none');rows+=infoRow('Linked crystal / gem location',c.specialLocations&&c.specialLocations.length?c.specialLocations.map(sp=>`#${sp.index+1} — ${esc(sp.variantName)} · variant ${sp.variant}`).join('<br>'):'none');
     }
     rows+=infoRow('Event table',`loaded $817 · ${tower.eventCapacity.used}/${tower.eventCapacity.normal} normal slots used${tower.id==='m'?'; Zendik 36–44 protected':''}`);
     rows+=infoRow('Object arena',tower.semanticAvailable?`loaded $717 · ${tower.objects.used}/256 bytes used`:'unavailable');rows+=infoRow('Monster allocation',tower.semanticAvailable?`loaded $475 · count/state ${tower.monsterCount}, 42 × 16-byte allocation`:'unavailable');
     if(tower.semanticAvailable){
       rows+=infoRow('Teleport pairs',tower.specials.teleports.map(tp=>`pair ${tp.pair+1}: ${tp.empty?'unused':`A ${tp.aCoord.x},${tp.aCoord.y} ↔ B ${tp.bCoord.x},${tp.bCoord.y}`} · <span class="mono">${tp.a.map(h2).join(' ')} ${tp.b.map(h2).join(' ')}</span>`).join('<br>'));
-      rows+=infoRow('Crystal / socket packed records',tower.specials.crystal.map(cr=>`#${cr.index+1} P${cr.pair+1}${cr.endpoint}: ${cr.empty?'unused':cr.source?`F${cr.source.floorIndex} ${cr.source.x},${cr.source.y} · variant ${hex(cr.variant,1)} · map ${hex(cr.mapOffset,3)}`:`unresolved map ${hex(cr.mapOffset,3)} · variant ${hex(cr.variant,1)}`} · <span class="mono">${cr.bytes.map(h2).join(' ')}</span>`).join('<br>'));
+      rows+=infoRow('Crystal / gem socket packed records',tower.specials.crystal.map(cr=>`#${cr.index+1}: ${cr.empty?'unused':cr.source?`${esc(cr.variantName)} · F${cr.source.floorIndex} ${coord(cr.source.x,cr.source.y)} · variant ${cr.variant} · map ${hex(cr.mapOffset,3)}`:`${esc(cr.variantName)} · unresolved map ${hex(cr.mapOffset,3)} · variant ${cr.variant}`} · <span class="mono">${cr.bytes.map(h2).join(' ')}</span>`).join('<br>'));
     }
     rows+=infoRow('Z80 relocation note','For loaded offsets $006+, runtime address = $9DBD + loaded offset. Raw runtime/scratch bytes remain preserved unless explicitly edited.');
     let html=`<table class="info-table">${rows}</table>`;
@@ -207,18 +276,18 @@
   }
 
   function renderSession(){const d=session.logicalDiff(),p=session.changedParityBlocks();$('changeCount').textContent=String(d.length);$('parityCount').textContent=String(p.length);$('undo').disabled=!session.undoStack.length;}
-  function renderPanels(){document.querySelectorAll('.mode-panel').forEach(p=>p.classList.toggle('hidden',p.dataset.panel!==mode));document.querySelectorAll('.mode-tabs button').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));renderEventEditor();renderObjectEditor();renderMonsterEditor();renderLayoutEditor();}
+  function renderPanels(){document.querySelectorAll('.mode-panel').forEach(p=>p.classList.toggle('hidden',p.dataset.panel!==mode));document.querySelectorAll('.mode-tabs button').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));renderCellProperties();renderEventEditor();renderObjectEditor();renderMonsterEditor();renderLayoutEditor();}
   function renderAll(){renderMap();renderSelection();updateClipboard();renderPanels();renderAudit();renderSession();renderInfo();}
 
   function cellFromClick(ev){if(!renderMetrics||!floor)return null;const r=canvas.getBoundingClientRect(),sx=canvas.width/r.width,sy=canvas.height/r.height,px=(ev.clientX-r.left)*sx,py=(ev.clientY-r.top)*sy;const gx=Math.floor((px-renderMetrics.marginLeft)/renderMetrics.cellSize),gy=Math.floor((py-renderMetrics.marginTop)/renderMetrics.cellSize),x=gx-renderMetrics.originX,y=gy-renderMetrics.originY;return BWBloodwych.getCell(session.tape,tower,floor,x,y);}
   canvas.addEventListener('click',ev=>{const c=cellFromClick(ev);if(!c)return;selected={x:c.x,y:c.y};if(c.events.length)eventCursor=c.events[0].slot;if(mode==='objects'&&c.objectStacks.length)objectIndex=c.objectStacks[0].index;if(mode==='monsters'&&c.monsters.length)monsterCursor=c.monsters[0].index;renderAll();});
 
   function rawMapEdit(value,label){const c=selectedCell();if(!c){setStatus('Select a map cell first.','warn');return;}if(value==null||value<0||value>255){setStatus('Enter a hexadecimal byte from 00 to FF.','error');return;}withEdit(label,()=>BWBloodwych.writeCell(session,tower,floor,c.x,c.y,value,{kind:'raw-map'}));}
-  function copyCell(){const c=selectedCell();if(!c){setStatus('Select a map cell first.','warn');return;}clipboardByte=c.value;updateClipboard();setStatus(`Copied ${hex(c.value)} from ${BWRenderer.rowLabel(c.y)}${c.x}.`,'ok');}
+  function copyCell(){const c=selectedCell();if(!c){setStatus('Select a map cell first.','warn');return;}clipboardByte=c.value;updateClipboard();setStatus(`Copied ${hex(c.value)} from ${coord(c.x,c.y)}.`,'ok');}
   function cutCell(){const c=selectedCell();if(!c){setStatus('Select a map cell first.','warn');return;}clipboardByte=c.value;updateClipboard();rawMapEdit(0,'Cut map cell');}
   function pasteCell(){if(clipboardByte==null){setStatus('Clipboard is empty.','warn');return;}rawMapEdit(clipboardByte,'Paste map cell');}
 
-  function setSelectedLocation(fi,x,y){const f=tower.floors[fi];if(!f||!f.used||x<0||y<0||x>=f.width||y>=f.height){setStatus('Referenced location is outside an active floor.','warn');return false;}floor=f;$('floor').value=String(fi);selected={x,y};renderAll();return true;}
+  function setSelectedLocation(fi,x,y){const f=tower.floors[fi];if(!f||!f.used||x<0||y<0||x>=f.width||y>=f.height){setStatus('Referenced location is outside an active floor.','warn');return false;}floor=f;$('floor').value=String(fi);selected={x,y};renderNavigation();renderAll();return true;}
 
   function eventNav(dir){const list=activeEvents();if(!list.length)return;let i=list.findIndex(e=>e.slot===eventCursor);if(i<0)i=0;else i=(i+dir+list.length)%list.length;eventCursor=list[i].slot;renderEventEditor();renderInfo();}
   function saveEvent(){const ev=tower.events.find(e=>e.slot===eventCursor&&!e.empty&&!e.protected);if(!ev)return;const action=+$('eventAction').value,tf=parseDec($('eventTF').value,0,7),tx=parseDec($('eventTX').value,0,31),ty=parseDec($('eventTY').value,0,255);if([tf,tx,ty].some(v=>v==null)){setStatus('Invalid Event target.','error');return;}withEdit(`Save event ${ev.slot}`,()=>BWBloodwych.writeEvent(session,tower,ev.slot,{sourceOffset:ev.sourceOffset,action,targetFloor:tf,targetX:tx,targetY:ty}));}
@@ -256,11 +325,13 @@
   function saveStarts(){const vals=[];for(const p of [1,2]){const x=parseDec($(`p${p}x`).value),y=parseDec($(`p${p}y`).value),f=parseDec($(`p${p}f`).value,0,4);if([x,y,f].some(v=>v==null)){setStatus('Invalid player start.','error');return;}vals.push({p,x,y,f});}withEdit('Save player starts',()=>vals.forEach(v=>BWBloodwych.writePlayerStart(session,tower,v.p,v.x,v.y,v.f)));}
   function saveProgression(){const v=parseDec($('progression').value);if(v==null){setStatus('Invalid progression value.','error');return;}withEdit('Save progression requirement',()=>BWBloodwych.writeProgression(session,tower,v));}
   function saveTeleports(){const rows=[];for(let p=0;p<2;p++){const active=$(`tp${p}active`).checked,ax=parseDec($(`tp${p}ax`).value,0,255),ay=parseDec($(`tp${p}ay`).value,0,255),bx=parseDec($(`tp${p}bx`).value,0,255),by=parseDec($(`tp${p}by`).value,0,255);if(active&&[ax,ay,bx,by].some(v=>v==null)){setStatus('Teleport X/Y values must be 0–255.','error');return;}rows.push({p,active,ax:ax||0,ay:ay||0,bx:bx||0,by:by||0});}withEdit('Save teleport pairs',()=>rows.forEach(v=>BWBloodwych.writeTeleportPair(session,tower,v.p,v.active,v.ax,v.ay,v.bx,v.by)));}
-  function saveCrystals(){const rows=[];for(let i=0;i<8;i++){const active=$(`cr${i}active`).checked,f=parseDec($(`cr${i}f`).value,0,4),x=parseDec($(`cr${i}x`).value,0,255),y=parseDec($(`cr${i}y`).value,0,255),variant=parseDec($(`cr${i}v`).value,0,15);if(active&&[f,x,y,variant].some(v=>v==null)){setStatus('Crystal/socket location requires a valid floor, X/Y and variant 0–15.','error');return;}rows.push({i,active,f:f||0,x:x||0,y:y||0,variant:variant||0});}withEdit('Save crystal/socket special locations',()=>rows.forEach(v=>BWBloodwych.writeSpecialLocation(session,tower,v.i,v.active,v.f,v.x,v.y,v.variant)));}
+  function saveCrystals(){const rows=[];for(let i=0;i<8;i++){const active=$(`cr${i}active`).checked,f=parseDec($(`cr${i}f`).value,0,4),x=parseDec($(`cr${i}x`).value,0,255),y=parseDec($(`cr${i}y`).value,0,255),variant=parseDec($(`cr${i}v`).value,0,7);if(active&&[f,x,y,variant].some(v=>v==null)){setStatus('Crystal/socket location requires a valid floor, X/Y and variant 0–7.','error');return;}rows.push({i,active,f:f||0,x:x||0,y:y||0,variant:variant||0});}withEdit('Save crystal/socket special locations',()=>rows.forEach(v=>BWBloodwych.writeSpecialLocation(session,tower,v.i,v.active,v.f,v.x,v.y,v.variant)));}
 
   function fitMap(){if(!floor||!floor.used)return;const area=$('mapArea'),aligned=$('aligned').checked;let w=floor.width,h=floor.height;if(aligned){const used=tower.floors.filter(f=>f.used);w=Math.max(...used.map(f=>f.width+f.xOffset));h=Math.max(...used.map(f=>f.height+f.yOffset));}const cell=Math.max(18,Math.min(48,Math.floor(Math.min((area.clientWidth-70)/Math.max(1,w),(area.clientHeight-70)/Math.max(1,h)))));$('zoom').value=String(cell);renderMap();}
 
   document.querySelector('.mode-tabs').addEventListener('click',e=>{const b=e.target.closest('button[data-mode]');if(!b)return;mode=b.dataset.mode;renderAll();});
+  document.addEventListener('change',e=>{const p=e.target&&e.target.dataset?e.target.dataset.cellProp:null;if(p)editCellProperty(p,e.target.value);});
+  document.addEventListener('click',e=>{const tb=e.target.closest('[data-tower-index]');if(tb){$('tower').value=tb.dataset.towerIndex;selectTower();return;}const fb=e.target.closest('[data-floor-index]');if(fb){$('floor').value=fb.dataset.floorIndex;selectFloor();}});
   ['ovStarts','ovEvents','ovObjects','ovMonsters','ovSpecials','ovTeleports','zoom','aligned','showGrid','showHex','mapStyle'].forEach(id=>$(id).addEventListener('input',renderMap));
   $('fitMap').addEventListener('click',fitMap);$('tower').addEventListener('change',()=>selectTower());$('floor').addEventListener('change',selectFloor);
   $('tapFile').addEventListener('change',async()=>{const f=$('tapFile').files[0];if(f)loadBuffer(await f.arrayBuffer(),f.name);});
@@ -275,6 +346,7 @@
     if(a==='event-prev')eventNav(-1);else if(a==='event-next')eventNav(1);else if(a==='event-save')saveEvent();else if(a==='event-find'){const ev=tower.events.find(e=>e.slot===eventCursor);if(ev&&ev.source)setSelectedLocation(ev.source.floorIndex,ev.source.x,ev.source.y);else setStatus('Event source does not resolve to an active floor.','warn');}else if(a==='event-move')moveEvent();else if(a==='event-delete')deleteEvent();else if(a==='event-add')addEvent();
     else if(a==='object-save')saveObject();else if(a==='object-item-add')addObjectItem();else if(a==='object-item-delete')deleteObjectItem();else if(a==='object-delete'){const s=currentObject();if(s&&withEdit(`Delete object stack ${s.index}`,()=>BWBloodwych.deleteObjectStack(session,tower,s.index)))objectIndex=Math.max(0,objectIndex-1);}
     else if(a==='monster-save')saveMonster();else if(a==='team-prev')teamNav(-1);else if(a==='team-next')teamNav(1);else if(a==='team-save')saveTeam();
+    else if(a==='special-find'){const sp=tower.specials.crystal[+b.dataset.specialIndex];if(sp&&sp.source)setSelectedLocation(sp.source.floorIndex,sp.source.x,sp.source.y);}
     else if(a==='layout-floor-save')saveFloorLayout();else if(a==='layout-start-save')saveStarts();else if(a==='layout-progression-save')saveProgression();else if(a==='layout-teleport-save')saveTeleports();else if(a==='layout-crystal-save')saveCrystals();
   });
 
