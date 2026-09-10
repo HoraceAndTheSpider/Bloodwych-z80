@@ -1,0 +1,13 @@
+facing_index,depth,image_package,mask_pointer_list,component_group_counts
+0,near,$847C,$8515,"5,5,22,5"
+0,middle,$8601,$8638,"4,9"
+0,far,$869E,$86B8,6
+1,near,$8278,$8326,"5,5,22,5,5"
+1,middle,$855F,$8596,"4,9"
+1,far,$8652,$866C,6
+2,near,$847C,$8515,"5,5,22,5"
+2,middle,$8601,$8638,"4,9"
+2,far,$869E,$86B8,6
+3,near,$837A,$8428,"5,5,22,5,5"
+3,middle,$85B0,$85E7,"4,9"
+3,far,$8678,$8692,6

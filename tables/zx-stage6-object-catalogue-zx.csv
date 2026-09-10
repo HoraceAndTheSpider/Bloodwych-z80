@@ -1,0 +1,77 @@
+code,name,inventory_graphic_pointer,colour_set,perspective_family,name_status
+$00,Empty,$650A,0,0,binary empty code
+$01,Coinage,$6526,1,4,ZX-source corroborated
+$02,Common Keys,$6536,2,2,ZX-source corroborated
+$03,Arrows,$6544,3,10,ZX-source corroborated
+$04,Elf Arrows,$6544,4,10,ZX-source corroborated
+$05,Drink (< half),$6562,5,3,ZX-source corroborated
+$06,Drink (half),$657E,5,3,ZX-source corroborated
+$07,Drink (full),$659A,5,3,ZX-source corroborated
+$08,Food (partial),$65B6,6,6,ZX-source corroborated
+$09,Food (half),$65D2,6,6,ZX-source corroborated
+$0A,Food (full),$65EE,6,6,ZX-source corroborated
+$0B,N'Egg Green,$660A,7,16,ZX-source corroborated
+$0C,N'Egg Blue,$660A,0,16,ZX-source corroborated
+$0D,N'Egg Red,$660A,6,16,ZX-source corroborated
+$0E,Serpent Slime,$6628,7,0,ZX-source corroborated
+$0F,Brimstone Ale,$6628,1,0,ZX-source corroborated
+$10,Dragon Broth,$6628,6,0,ZX-source corroborated
+$11,Moon Elixir,$6628,0,0,ZX-source corroborated
+$12,Leathers,$6646,8,8,ZX-source corroborated
+$13,Chain Mail,$6646,9,8,ZX-source corroborated
+$14,Plate Mail,$665E,9,8,ZX-source corroborated
+$15,Mithril Chain,$6646,0,8,ZX-source corroborated
+$16,Mithril Plate,$665E,0,8,ZX-source corroborated
+$17,Adamant Chain,$6646,7,8,ZX-source corroborated
+$18,Adamant Plate,$665E,7,8,ZX-source corroborated
+$19,Crystal Chain,$6646,6,8,ZX-source corroborated
+$1A,Crystal Plate,$665E,6,8,ZX-source corroborated
+$1B,Hide Shield,$6676,8,7,ZX-source corroborated
+$1C,Buckler,$6676,9,7,ZX-source corroborated
+$1D,Rune Shield,$6676,10,7,ZX-source corroborated
+$1E,Large Shield,$6692,9,7,ZX-source corroborated
+$1F,Moon Shield,$6692,0,7,ZX-source corroborated
+$20,Dragon Shield,$6692,6,7,ZX-source corroborated
+$21,War Shield,$6692,7,7,ZX-source corroborated
+$22,Dagger,$66B0,9,12,ZX-source corroborated
+$23,Stealth Blade,$66C6,1,9,ZX-source corroborated
+$24,Short Sword,$66DE,9,9,ZX-source corroborated
+$25,Long Sword,$66DE,11,9,ZX-source corroborated
+$26,Mithril Sword,$66DE,0,9,ZX-source corroborated
+$27,Fleshbane,$66DE,7,9,ZX-source corroborated
+$28,Demon Blade,$66DE,6,9,ZX-source corroborated
+$29,Ace of Swords,$66FC,1,9,ZX-source corroborated
+$2A,Battle Axe,$671A,9,11,ZX-source corroborated
+$2B,Mithril Axe,$671A,0,11,ZX-source corroborated
+$2C,Troll's Axe,$671A,7,11,ZX-source corroborated
+$2D,Brainbiter,$671A,10,11,ZX-source corroborated
+$2E,Deathbringer,$671A,1,11,ZX-source corroborated
+$2F,Staff,$6738,8,17,ZX-source corroborated
+$30,Battle Staff,$6738,9,17,ZX-source corroborated
+$31,Power Staff,$6738,1,17,ZX-source corroborated
+$32,Long Bow,$6756,6,15,ZX-source corroborated
+$33,Frost Bow,$6756,11,15,ZX-source corroborated
+$34,Crossbow,$6774,8,13,ZX-source corroborated
+$35,Serpent Gem,$6790,12,5,ZX-source corroborated
+$36,Chaos Gem,$6790,13,5,ZX-source corroborated
+$37,Dragon Gem,$6790,14,5,ZX-source corroborated
+$38,Moon Gem,$6790,15,5,ZX-source corroborated
+$39,Tan Gem,$6790,16,5,ZX-source corroborated
+$3A,Bluish Gem,$6790,17,5,ZX-source corroborated
+$3B,Serpent Key,$67AE,7,2,ZX-source corroborated
+$3C,Moon Key,$67AE,0,2,ZX-source corroborated
+$3D,Dragon Key,$67C6,6,2,ZX-source corroborated
+$3E,Chaos Key,$67C6,11,2,ZX-source corroborated
+$3F,Chromatic Key,$67C6,10,2,ZX-source corroborated
+$40,Serpent Wand,$67C6,7,10,ZX-source corroborated
+$41,Chaos Wand,$67C6,1,10,ZX-source corroborated
+$42,Dragon Wand,$67DE,6,10,ZX-source corroborated
+$43,Moon Wand,$67DE,0,10,ZX-source corroborated
+$44,Heal Wand,$67DE,11,10,ZX-source corroborated
+$45,Yes Ring,$67DE,18,1,ZX source says 'Yes Ring'; semantic purpose/name unresolved
+$46,Serpent Ring,$67DE,19,1,ZX-source corroborated
+$47,Chaos Ring,$67F6,20,1,ZX-source corroborated
+$48,Dragon Ring,$680C,21,1,ZX-source corroborated
+$49,Moon Ring,$680C,22,1,ZX-source corroborated
+$4A,Player 1 remains,$680C,23,14,ZX-source corroborated
+$4B,Player 2 remains,$680C,24,14,ZX-source corroborated

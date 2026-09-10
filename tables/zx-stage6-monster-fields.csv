@@ -1,0 +1,17 @@
+offset,field,confidence
+$00,x,STRONG
+$01,y,PROVEN
+$02,orientation_formation,STRONG
+$03,floor,PROVEN
+$04,cycle_timing,STRONG
+$05,base_level,STRONG
+$06,effective_level,STRONG
+$07,hp_low,PROVEN
+$08,hp_high,PROVEN
+$09,action_status,STRONG
+$0A,appearance_graphics_selector,PROVEN
+$0B,dropped_object_code,PROVEN
+$0C,team_group,STRONG
+$0D,special_live_entity_class,STRONG
+$0E,runtime_visual_status_timer,STRONG
+$0F,target_reference,STRONG

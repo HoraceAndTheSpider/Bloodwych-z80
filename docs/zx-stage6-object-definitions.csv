@@ -1,0 +1,77 @@
+object_code,graphic_pointer,colour_set,lower_left_attr,lower_right_attr,upper_left_attr,upper_right_attr,lower_left,lower_right,upper_left,upper_right
+$00,$650A,0,$45,$45,$45,$45,bright cyan on black,bright cyan on black,bright cyan on black,bright cyan on black
+$01,$6526,1,$46,$46,$46,$46,bright yellow on black,bright yellow on black,bright yellow on black,bright yellow on black
+$02,$6536,2,$06,$06,$06,$06,yellow on black,yellow on black,yellow on black,yellow on black
+$03,$6544,3,$04,$04,$42,$42,green on black,green on black,bright red on black,bright red on black
+$04,$6544,4,$04,$04,$44,$44,green on black,green on black,bright green on black,bright green on black
+$05,$6562,5,$02,$02,$45,$02,red on black,red on black,bright cyan on black,red on black
+$06,$657E,5,$02,$02,$45,$02,red on black,red on black,bright cyan on black,red on black
+$07,$659A,5,$02,$02,$45,$02,red on black,red on black,bright cyan on black,red on black
+$08,$65B6,6,$42,$42,$42,$42,bright red on black,bright red on black,bright red on black,bright red on black
+$09,$65D2,6,$42,$42,$42,$42,bright red on black,bright red on black,bright red on black,bright red on black
+$0A,$65EE,6,$42,$42,$42,$42,bright red on black,bright red on black,bright red on black,bright red on black
+$0B,$660A,7,$44,$44,$44,$44,bright green on black,bright green on black,bright green on black,bright green on black
+$0C,$660A,0,$45,$45,$45,$45,bright cyan on black,bright cyan on black,bright cyan on black,bright cyan on black
+$0D,$660A,6,$42,$42,$42,$42,bright red on black,bright red on black,bright red on black,bright red on black
+$0E,$6628,7,$44,$44,$44,$44,bright green on black,bright green on black,bright green on black,bright green on black
+$0F,$6628,1,$46,$46,$46,$46,bright yellow on black,bright yellow on black,bright yellow on black,bright yellow on black
+$10,$6628,6,$42,$42,$42,$42,bright red on black,bright red on black,bright red on black,bright red on black
+$11,$6628,0,$45,$45,$45,$45,bright cyan on black,bright cyan on black,bright cyan on black,bright cyan on black
+$12,$6646,8,$02,$02,$02,$02,red on black,red on black,red on black,red on black
+$13,$6646,9,$07,$07,$07,$07,white on black,white on black,white on black,white on black
+$14,$665E,9,$07,$07,$07,$07,white on black,white on black,white on black,white on black
+$15,$6646,0,$45,$45,$45,$45,bright cyan on black,bright cyan on black,bright cyan on black,bright cyan on black
+$16,$665E,0,$45,$45,$45,$45,bright cyan on black,bright cyan on black,bright cyan on black,bright cyan on black
+$17,$6646,7,$44,$44,$44,$44,bright green on black,bright green on black,bright green on black,bright green on black
+$18,$665E,7,$44,$44,$44,$44,bright green on black,bright green on black,bright green on black,bright green on black
+$19,$6646,6,$42,$42,$42,$42,bright red on black,bright red on black,bright red on black,bright red on black
+$1A,$665E,6,$42,$42,$42,$42,bright red on black,bright red on black,bright red on black,bright red on black
+$1B,$6676,8,$02,$02,$02,$02,red on black,red on black,red on black,red on black
+$1C,$6676,9,$07,$07,$07,$07,white on black,white on black,white on black,white on black
+$1D,$6676,10,$43,$43,$43,$43,bright magenta on black,bright magenta on black,bright magenta on black,bright magenta on black
+$1E,$6692,9,$07,$07,$07,$07,white on black,white on black,white on black,white on black
+$1F,$6692,0,$45,$45,$45,$45,bright cyan on black,bright cyan on black,bright cyan on black,bright cyan on black
+$20,$6692,6,$42,$42,$42,$42,bright red on black,bright red on black,bright red on black,bright red on black
+$21,$6692,7,$44,$44,$44,$44,bright green on black,bright green on black,bright green on black,bright green on black
+$22,$66B0,9,$07,$07,$07,$07,white on black,white on black,white on black,white on black
+$23,$66C6,1,$46,$46,$46,$46,bright yellow on black,bright yellow on black,bright yellow on black,bright yellow on black
+$24,$66DE,9,$07,$07,$07,$07,white on black,white on black,white on black,white on black
+$25,$66DE,11,$47,$47,$47,$47,bright white on black,bright white on black,bright white on black,bright white on black
+$26,$66DE,0,$45,$45,$45,$45,bright cyan on black,bright cyan on black,bright cyan on black,bright cyan on black
+$27,$66DE,7,$44,$44,$44,$44,bright green on black,bright green on black,bright green on black,bright green on black
+$28,$66DE,6,$42,$42,$42,$42,bright red on black,bright red on black,bright red on black,bright red on black
+$29,$66FC,1,$46,$46,$46,$46,bright yellow on black,bright yellow on black,bright yellow on black,bright yellow on black
+$2A,$671A,9,$07,$07,$07,$07,white on black,white on black,white on black,white on black
+$2B,$671A,0,$45,$45,$45,$45,bright cyan on black,bright cyan on black,bright cyan on black,bright cyan on black
+$2C,$671A,7,$44,$44,$44,$44,bright green on black,bright green on black,bright green on black,bright green on black
+$2D,$671A,10,$43,$43,$43,$43,bright magenta on black,bright magenta on black,bright magenta on black,bright magenta on black
+$2E,$671A,1,$46,$46,$46,$46,bright yellow on black,bright yellow on black,bright yellow on black,bright yellow on black
+$2F,$6738,8,$02,$02,$02,$02,red on black,red on black,red on black,red on black
+$30,$6738,9,$07,$07,$07,$07,white on black,white on black,white on black,white on black
+$31,$6738,1,$46,$46,$46,$46,bright yellow on black,bright yellow on black,bright yellow on black,bright yellow on black
+$32,$6756,6,$42,$42,$42,$42,bright red on black,bright red on black,bright red on black,bright red on black
+$33,$6756,11,$47,$47,$47,$47,bright white on black,bright white on black,bright white on black,bright white on black
+$34,$6774,8,$02,$02,$02,$02,red on black,red on black,red on black,red on black
+$35,$6790,12,$44,$04,$47,$44,bright green on black,green on black,bright white on black,bright green on black
+$36,$6790,13,$46,$06,$47,$46,bright yellow on black,yellow on black,bright white on black,bright yellow on black
+$37,$6790,14,$42,$02,$47,$42,bright red on black,red on black,bright white on black,bright red on black
+$38,$6790,15,$45,$05,$47,$45,bright cyan on black,cyan on black,bright white on black,bright cyan on black
+$39,$67AE,16,$42,$02,$46,$42,bright red on black,red on black,bright yellow on black,bright red on black
+$3A,$67AE,17,$44,$05,$47,$44,bright green on black,cyan on black,bright white on black,bright green on black
+$3B,$67C6,7,$44,$44,$44,$44,bright green on black,bright green on black,bright green on black,bright green on black
+$3C,$67C6,0,$45,$45,$45,$45,bright cyan on black,bright cyan on black,bright cyan on black,bright cyan on black
+$3D,$67C6,6,$42,$42,$42,$42,bright red on black,bright red on black,bright red on black,bright red on black
+$3E,$67C6,11,$47,$47,$47,$47,bright white on black,bright white on black,bright white on black,bright white on black
+$3F,$67C6,10,$43,$43,$43,$43,bright magenta on black,bright magenta on black,bright magenta on black,bright magenta on black
+$40,$67DE,7,$44,$44,$44,$44,bright green on black,bright green on black,bright green on black,bright green on black
+$41,$67DE,1,$46,$46,$46,$46,bright yellow on black,bright yellow on black,bright yellow on black,bright yellow on black
+$42,$67DE,6,$42,$42,$42,$42,bright red on black,bright red on black,bright red on black,bright red on black
+$43,$67DE,0,$45,$45,$45,$45,bright cyan on black,bright cyan on black,bright cyan on black,bright cyan on black
+$44,$67DE,11,$47,$47,$47,$47,bright white on black,bright white on black,bright white on black,bright white on black
+$45,$67F6,18,$06,$06,$07,$07,yellow on black,yellow on black,white on black,white on black
+$46,$680C,19,$06,$06,$44,$44,yellow on black,yellow on black,bright green on black,bright green on black
+$47,$680C,20,$06,$06,$46,$46,yellow on black,yellow on black,bright yellow on black,bright yellow on black
+$48,$680C,21,$06,$06,$42,$42,yellow on black,yellow on black,bright red on black,bright red on black
+$49,$680C,22,$06,$06,$45,$45,yellow on black,yellow on black,bright cyan on black,bright cyan on black
+$4A,$6828,23,$45,$45,$47,$47,bright cyan on black,bright cyan on black,bright white on black,bright white on black
+$4B,$6828,24,$44,$44,$47,$47,bright green on black,bright green on black,bright white on black,bright white on black
