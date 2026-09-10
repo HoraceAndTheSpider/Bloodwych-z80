@@ -1,5 +1,22 @@
 # Changelog
 
+## Stage 5.1 — map UI and semantic correction pass
+
+- Reworked the editor shell to follow the current Amiga/Python map-editor layout more closely: large game-map/floor navigation on the left, dominant central map and contextual editing panel on the right.
+- Standardised map coordinates on numeric X/Y throughout the renderer and editors.
+- Added Amiga-style dynamic MAPS / CELL PROPERTIES controls for map type, wall feature/face, door axis/state/lock and floor feature.
+- Corrected N/S and E/W door drawing in Modern, CPC/Amstrad and Amiga-inspired modes.
+- Restored door lock/colour display and corrected door bits 5-7 as lock/colour rather than normal actor occupancy.
+- Prevented semantic Monster placement on a door cell and added audit handling for Monster/door conflicts.
+- Replaced the global `$09` “Vivify-machine floor pad” label with neutral pad/trigger semantics and linked-Event contextual labelling.
+- Corrected `$20/$22` labels to Tower-exit/progression centre/side-pad paths; Keep slots 16/18 now present as the two Tower-exit side pads.
+- Corrected `$006-$015` from four invented A/B pairs to eight independent two-byte special-location records, based on the Z80 lookup at runtime `$9DC3`.
+- Identified wall features 12-15 as filled crystal/gem sockets and linked all non-zero special records to their map cells.
+- Added friendly special variants: Serpent, Chaos, Dragon and Moon crystals plus tan and bluish teleport gems.
+- Displayed filled teleport-gem sockets directly on VIEWER/MAPS using tan/bluish colours; LAYOUT now lists independent locations with FIND ON MAP.
+- Added a renderer hook for future snapshot/save Firepath, Mindrock and Formwall semantics without inventing a Level-TZX encoding.
+- Added `tools/stage5_1_selftest.js` and `docs/zx-html-editor-stage5-1-map-ui.md`.
+
 ## Stage 5 — semantic level editor milestone
 
 - Refactored the editor into **VIEWER / MAPS / OBJECTS / CHARACTERS-MONSTERS / LAYOUT** while keeping one shared map/session model.

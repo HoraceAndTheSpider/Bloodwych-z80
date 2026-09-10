@@ -2,29 +2,23 @@
 <html lang="en-GB">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Bloodwych ZX Level Editor — Stage 5</title>
+<title>Bloodwych ZX Map Viewer / Editor — Stage 5.1</title>
 <link rel="stylesheet" href="css/editor.css">
 </head>
 <body>
 <header class="app-header">
   <div class="title-row">
-    <h1>Bloodwych ZX Level Editor <span>Stage 5</span></h1>
+    <h1>Bloodwych ZX Map Viewer / Editor <span>Stage 5.1</span></h1>
     <div class="source-controls">
       <label class="file-button">OPEN LEVEL TAPE<input id="tapFile" type="file" accept=".tzx,.tap,application/octet-stream"></label>
       <button id="loadBundled">BUNDLED LEVEL TZX</button>
       <strong id="sourceName">No source loaded</strong>
     </div>
-    <div class="header-actions"><button id="undo">UNDO</button><button id="exportLevel" class="primary">EXPORT LEVEL TZX</button><button id="infoToggle">INFO / DATA</button></div>
-  </div>
-  <div class="control-row">
-    <label>Tower <select id="tower"></select></label>
-    <label>Floor <select id="floor"></select></label>
-    <label>Style <select id="mapStyle"><option value="modern">Modern</option><option value="amstrad">CPC / Amstrad</option><option value="amiga">Amiga-inspired</option></select></label>
-    <label>Zoom <input id="zoom" type="range" min="18" max="48" value="30"></label>
-    <button id="fitMap">FIT</button>
-    <label class="compact"><input id="aligned" type="checkbox" checked> Align floors</label>
-    <label class="compact"><input id="showGrid" type="checkbox" checked> Grid</label>
-    <span id="status" class="status">Open the Level Data TZX to begin.</span>
+    <div class="header-actions">
+      <button id="undo">UNDO</button>
+      <button id="exportLevel" class="primary">EXPORT LEVEL TZX</button>
+      <button id="infoToggle">DATA / FILES</button>
+    </div>
   </div>
   <nav class="mode-tabs" aria-label="Editor modes">
     <button data-mode="viewer" class="active">VIEWER</button>
@@ -35,38 +29,88 @@
   </nav>
 </header>
 
+<!-- The app still uses these selects as its internal model selectors. The
+     visible navigation mirrors the Amiga/Python editor with large buttons. -->
+<div class="internal-selects" aria-hidden="true">
+  <select id="tower"></select><select id="floor"></select>
+</div>
+
 <div class="workspace">
-  <aside class="tool-panel" id="toolPanel">
+  <aside class="map-nav-panel">
+    <section>
+      <h2>GAME MAPS / BLOCKS</h2>
+      <div id="towerButtons" class="tower-buttons"></div>
+    </section>
+    <section>
+      <h2>FLOORS</h2>
+      <div id="floorButtons" class="floor-buttons"></div>
+    </section>
+    <section class="display-controls">
+      <div class="zoom-row"><button type="button" id="fitMap">FIT</button><label>Zoom <input id="zoom" type="range" min="18" max="48" value="30"></label></div>
+      <label>Style <select id="mapStyle"><option value="modern">Modern</option><option value="amstrad">CPC / Amstrad</option><option value="amiga">Amiga-inspired</option></select></label>
+      <label><input id="aligned" type="checkbox" checked> Align floors</label>
+      <label><input id="showGrid" type="checkbox" checked> Cell grid</label>
+    </section>
+    <section>
+      <h2>MAP INFO</h2>
+      <div id="mapMeta" class="map-meta">Load a level tape.</div>
+    </section>
+  </aside>
+
+  <main class="map-shell">
+    <div class="map-area modern" id="mapArea">
+      <div class="map-frame modern"><canvas id="map" aria-label="Bloodwych map"></canvas></div>
+    </div>
+    <div class="overlay-strip" aria-label="Map overlays">
+      <label><input id="ovStarts" type="checkbox"> PLAYERS</label>
+      <label><input id="ovEvents" type="checkbox"> EVENTS</label>
+      <label><input id="ovObjects" type="checkbox"> OBJECTS</label>
+      <label><input id="ovMonsters" type="checkbox"> MONSTERS</label>
+      <label><input id="ovSpecials" type="checkbox"> GEMS / SOCKETS</label>
+      <label class="disabled-control" title="The level-side teleport-pair records do not store a floor"><input id="ovTeleports" type="checkbox" disabled> TELEPORT PAIRS</label>
+    </div>
+    <div id="status" class="status">Open the Level Data TZX to begin.</div>
+  </main>
+
+  <aside class="context-panel">
+    <section class="selection-section">
+      <h2>SELECTION</h2>
+      <div id="selectionSummary" class="selection-card">Select a map cell.</div>
+    </section>
+
     <section class="mode-panel" data-panel="viewer">
-      <h2>Viewer</h2>
-      <p class="lead">Clean level inspection. Overlays are off by default.</p>
-      <div class="toggle-list">
-        <label><input id="ovStarts" type="checkbox"> Player starts</label>
-        <label><input id="ovEvents" type="checkbox"> Events</label>
-        <label><input id="ovObjects" type="checkbox"> Object stacks</label>
-        <label><input id="ovMonsters" type="checkbox"> Monsters</label>
-        <label><input id="ovSpecials" type="checkbox"> Crystal/socket records</label>
-        <label><input id="ovTeleports" type="checkbox" disabled> Teleport pairs</label>
+      <h2>VIEWER</h2>
+      <p class="lead">Map inspection using the same level model as the editor. Use the overlay buttons below the map as required.</p>
+      <div class="dungeon-placeholder">
+        <h3>3D DUNGEON VIEW</h3>
+        <div class="dungeon-box"><strong>ZX graphics renderer pending</strong><span>The Stage 6 graphics work will replace this placeholder; no substitute artwork is used.</span></div>
       </div>
-      <p class="note">Crystal/socket locations can be overlaid from their decoded map-workspace offsets. Teleport records store X/Y pairs but no level-side floor field, so a map overlay is deliberately not invented; edit them in LAYOUT.</p>
+      <p class="note">Crystal and teleport-gem socket locations are now linked to their map cells. Tan and bluish teleport gems use their own socket colours. The two separate teleport endpoint-pair records remain in LAYOUT because they contain X/Y only and no level-side floor field.</p>
     </section>
 
     <section class="mode-panel hidden" data-panel="maps">
-      <h2>Maps</h2>
+      <h2>MAPS</h2>
       <div id="mapSelection" class="selection-card">Select a map cell.</div>
       <div id="companionWarning" class="warning hidden"></div>
-      <div class="shortcut-grid"><button id="cutCell"><kbd>X</kbd> Cut</button><button id="copyCell"><kbd>C</kbd> Copy</button><button id="pasteCell"><kbd>V</kbd> Paste</button></div>
-      <div id="clipboardInfo" class="clipboard">Clipboard: empty</div>
-      <label>Raw byte <span class="inline"><input id="editByte" maxlength="2" placeholder="00"><button id="applyEdit">APPLY</button></span></label>
-      <label><input id="showHex" type="checkbox"> Show raw hex on map</label>
-      <p class="note">Raw cell edits never relocate linked Event, Object or Monster records. Use the semantic controls for those resources.</p>
-      <hr>
-      <h3>Linked Event</h3>
+
+      <h3>CELL PROPERTIES</h3>
+      <div id="cellProperties" class="cell-properties"><p class="muted">Select a map cell.</p></div>
+
+      <h3>LINKED EVENT</h3>
       <div id="eventEditor" class="editor-block"><p class="muted">Select a source cell.</p></div>
+
+      <details class="advanced-edit">
+        <summary>RAW / ADVANCED MAP EDIT</summary>
+        <div class="shortcut-grid"><button id="cutCell"><kbd>X</kbd> Cut</button><button id="copyCell"><kbd>C</kbd> Copy</button><button id="pasteCell"><kbd>V</kbd> Paste</button></div>
+        <div id="clipboardInfo" class="clipboard">Clipboard: empty</div>
+        <label class="raw-byte-row">Raw byte <span class="inline"><input id="editByte" maxlength="2" placeholder="00"><button id="applyEdit">APPLY</button></span></label>
+        <label><input id="showHex" type="checkbox"> Show raw hex on map</label>
+        <p class="note">Raw edits do not relocate linked Event, Object, Monster or crystal/gem-location records. Prefer the dynamic controls above for confirmed map semantics.</p>
+      </details>
     </section>
 
     <section class="mode-panel hidden" data-panel="objects">
-      <h2>Objects</h2>
+      <h2>OBJECTS</h2>
       <div class="nav-row"><button id="objectPrev">◀</button><span id="objectCounter">No stacks</span><button id="objectNext">▶</button></div>
       <div class="nav-row"><button id="objectFind">FIND</button><button id="objectPlace">PLACE / MOVE HERE</button><button id="objectAdd">ADD STACK HERE</button></div>
       <div id="objectEditor" class="editor-block"><p class="muted">Load a complete Level Data TZX.</p></div>
@@ -74,37 +118,22 @@
     </section>
 
     <section class="mode-panel hidden" data-panel="monsters">
-      <h2>Characters / Monsters</h2>
+      <h2>CHARACTERS / MONSTERS</h2>
       <p class="lead">Stage 5 level-data scope: monsters only. Champion data remains future Game-TZX work.</p>
       <div class="nav-row"><button id="monsterPrev">◀</button><span id="monsterCounter">No monsters</span><button id="monsterNext">▶</button></div>
       <div class="nav-row"><button id="monsterFind">FIND</button><button id="monsterPlace">PLACE / MOVE HERE</button></div>
       <div id="monsterEditor" class="editor-block"><p class="muted">Load a complete Level Data TZX.</p></div>
-      <hr><h3>Teams</h3><div id="teamEditor" class="editor-block"></div>
+      <hr><h3>TEAMS</h3><div id="teamEditor" class="editor-block"></div>
     </section>
 
     <section class="mode-panel hidden" data-panel="layout">
-      <h2>Layout</h2>
+      <h2>LAYOUT</h2>
       <div id="layoutEditor" class="editor-block"><p class="muted">Load a level tape.</p></div>
     </section>
-  </aside>
 
-  <main class="map-area modern" id="mapArea">
-    <div class="map-frame modern"><canvas id="map" aria-label="Bloodwych map"></canvas></div>
-  </main>
-
-  <aside class="context-panel">
-    <section class="dungeon-placeholder">
-      <h2>3D DUNGEON VIEW</h2>
-      <div class="dungeon-box"><strong>ZX graphics extraction / renderer pending</strong><span>No substitute artwork is used.</span></div>
-    </section>
-    <section>
-      <h2>Selection</h2><div id="selectionSummary" class="selection-card">Select a map cell.</div>
-    </section>
-    <section>
-      <h2>Audit</h2><div id="auditSummary" class="audit-summary">Load a level to run consistency checks.</div>
-    </section>
-    <section>
-      <h2>Session</h2>
+    <section class="context-footer">
+      <h2>AUDIT</h2><div id="auditSummary" class="audit-summary">Load a level to run consistency checks.</div>
+      <h2>SESSION</h2>
       <div class="session-grid"><span>Logical bytes</span><strong id="changeCount">0</strong><span>Parity blocks</span><strong id="parityCount">0</strong></div>
       <div class="button-row"><button id="exportPatch">PATCH JSON</button><button id="resetAll">RESET ALL</button></div>
       <div class="button-row"><button id="exportBlock">RAW BLOCK</button><button id="exportFloor">RAW FLOOR</button><button id="exportJson">TOWER JSON</button></div>
@@ -113,7 +142,7 @@
 </div>
 
 <aside id="infoDrawer" class="info-drawer" aria-hidden="true">
-  <div class="drawer-head"><h2>INFO / DATA</h2><button id="infoClose">CLOSE</button></div>
+  <div class="drawer-head"><h2>DATA / FILES</h2><button id="infoClose">CLOSE</button></div>
   <div id="infoContent"><p class="muted">Load a Level Data TZX and select a cell.</p></div>
 </aside>
 <div id="drawerShade" class="drawer-shade hidden"></div>

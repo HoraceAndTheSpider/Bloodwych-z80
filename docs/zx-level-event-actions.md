@@ -57,14 +57,29 @@ The source location is explicit. Sequential switch occurrence numbering is not p
 | `$1A` | Teleport F/X/Y without flash |
 | `$1C` | Advance target orientation/subfield by one `$08` step |
 | `$1E` | Toggle target bit 5 |
-| `$20` | Progression/entrance centre-pad path |
-| `$22` | Progression/entrance side-pad path |
+| `$20` | Tower exit / progression centre-pad path |
+| `$22` | Tower exit / progression side-pad path |
 | `$24` | Move/shift stone wall to following map byte |
 | `$26` | Toggle target feature/subfield state |
 | `$28` | Game completion |
 | `$2A` | Set target feature/orientation field to `$08` |
 
 Do not substitute an Amiga action name merely because an effect looks related.
+
+## Floor-pad labelling
+
+A map cell alone does not determine the full Event purpose. In particular, `$09` must not be globally labelled “Vivify-machine floor pad”. It is a floor pad/trigger family and the linked Event supplies the action context.
+
+The authoritative Keep block gives a useful regression case:
+
+```text
+Event slot 16 -> source Floor 2, X 8,  Y 1 -> source cell $09 -> action $22
+Event slot 18 -> source Floor 2, X 10, Y 1 -> source cell $09 -> action $22
+```
+
+These are user-correlated as the two-player Tower exit pads. The MAPS selection summary therefore describes `$09` contextually as a Tower-exit/progression side pad when it is linked to action `$22`, while the raw map decoder retains the neutral “Floor pad / trigger” name.
+
+The same rule is applied to known linked actions such as Vivify (`$0E/$10`), teleport (`$18/$1A`) and game completion (`$28`).
 
 ## Capacity
 
