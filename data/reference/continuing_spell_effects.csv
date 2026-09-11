@@ -1,0 +1,9 @@
+effect_id,name,packed_state
+0,Armour,state = (magnitude << 3) | effect_id
+1,Deflect,state = (magnitude << 3) | effect_id
+2,Warpower,state = (magnitude << 3) | effect_id
+3,Vanish,state = (magnitude << 3) | effect_id
+4,Compass,state = (magnitude << 3) | effect_id
+5,Levitate,state = (magnitude << 3) | effect_id
+6,Antimage,state = (magnitude << 3) | effect_id
+7,Trueview,state = (magnitude << 3) | effect_id

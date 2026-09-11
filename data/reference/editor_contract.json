@@ -1,0 +1,34 @@
+{
+  "format": "Bloodwych ZX editor integration reference",
+  "version": 1,
+  "game": {
+    "load_base": "$5B00",
+    "loaded_size": "$A500",
+    "champion_templates": {"base": "$9B23", "count": 16, "stride": "$5A", "data_offset": "$2F", "data_size": 43}
+  },
+  "level": {
+    "payload_size": "$08CB",
+    "team_table": {"offset": "$44C", "count": 10, "width": 4},
+    "monster_records": {"offset": "$475", "count": 42, "size": 16},
+    "object_used_length": "$715",
+    "object_arena": {"offset": "$717", "size": 256},
+    "events": {"offset": "$817", "count": 45, "size": 4}
+  },
+  "starting_inventory": {
+    "quantity_offsets": "$13-$16",
+    "pocket_offsets": "$17-$20",
+    "pocket_count": 10,
+    "coinage_display": "$21",
+    "common_key_display": "$22"
+  },
+  "dungeon": {
+    "view_slots": 19,
+    "sample_cells": 13,
+    "switch_descriptor": "$88AC",
+    "socket_descriptor": "$950D",
+    "door_static_descriptor": "$897B",
+    "work_width_pixels": 104,
+    "work_height_pixels": 64,
+    "work_stride_bytes": 13
+  }
+}

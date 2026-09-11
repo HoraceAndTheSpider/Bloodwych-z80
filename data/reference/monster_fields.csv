@@ -1,0 +1,16 @@
+offset,meaning,confidence
+$00,X; $FF secondary team member,PROVEN/STRONG
+$01,Y,PROVEN
+$02,orientation / formation state,STRONG
+$03,floor,PROVEN
+$04,action-cycle / timing state,STRONG
+$05,base level,STRONG
+$06,effective/current level,STRONG
+$07-$08,current HP little-endian,PROVEN
+$09,action/status,STRONG
+$0A,appearance / graphics selector,PROVEN
+$0B,normal object dropped on death,PROVEN
+$0C,team relationship; leader team row or $FF,PROVEN/STRONG
+$0D,special/live-entity class / lifecycle field,STRONG; exact enum OPEN
+$0E,runtime visual/status/countdown field; authored zero,STRONG
+$0F,runtime target/reference,STRONG

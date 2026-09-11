@@ -1,0 +1,77 @@
+code,name,status
+$00,Empty,binary empty code
+$01,Coinage,friendly ZX catalogue annotation; numeric code authoritative
+$02,Common Keys,friendly ZX catalogue annotation; numeric code authoritative
+$03,Arrows,friendly ZX catalogue annotation; numeric code authoritative
+$04,Elf Arrows,friendly ZX catalogue annotation; numeric code authoritative
+$05,Drink (< half),friendly ZX catalogue annotation; numeric code authoritative
+$06,Drink (half),friendly ZX catalogue annotation; numeric code authoritative
+$07,Drink (full),friendly ZX catalogue annotation; numeric code authoritative
+$08,Food (partial),friendly ZX catalogue annotation; numeric code authoritative
+$09,Food (half),friendly ZX catalogue annotation; numeric code authoritative
+$0A,Food (full),friendly ZX catalogue annotation; numeric code authoritative
+$0B,N'Egg Green,friendly ZX catalogue annotation; numeric code authoritative
+$0C,N'Egg Blue,friendly ZX catalogue annotation; numeric code authoritative
+$0D,N'Egg Red,friendly ZX catalogue annotation; numeric code authoritative
+$0E,Snake Slime,ZX packed-text/source-correlated
+$0F,Brimstone Ale,friendly ZX catalogue annotation; numeric code authoritative
+$10,Dragon Broth,friendly ZX catalogue annotation; numeric code authoritative
+$11,Moon Elixir,friendly ZX catalogue annotation; numeric code authoritative
+$12,Leathers,friendly ZX catalogue annotation; numeric code authoritative
+$13,Chain Mail,friendly ZX catalogue annotation; numeric code authoritative
+$14,Plate Mail,friendly ZX catalogue annotation; numeric code authoritative
+$15,Mithril Chain,friendly ZX catalogue annotation; numeric code authoritative
+$16,Mithril Plate,friendly ZX catalogue annotation; numeric code authoritative
+$17,Adamant Chain,friendly ZX catalogue annotation; numeric code authoritative
+$18,Adamant Plate,friendly ZX catalogue annotation; numeric code authoritative
+$19,Crystal Chain,friendly ZX catalogue annotation; numeric code authoritative
+$1A,Crystal Plate,friendly ZX catalogue annotation; numeric code authoritative
+$1B,Hide Shield,friendly ZX catalogue annotation; numeric code authoritative
+$1C,Buckler,friendly ZX catalogue annotation; numeric code authoritative
+$1D,Rune Shield,friendly ZX catalogue annotation; numeric code authoritative
+$1E,Large Shield,friendly ZX catalogue annotation; numeric code authoritative
+$1F,Moon Shield,friendly ZX catalogue annotation; numeric code authoritative
+$20,Dragon Shield,friendly ZX catalogue annotation; numeric code authoritative
+$21,War Shield,friendly ZX catalogue annotation; numeric code authoritative
+$22,Dagger,friendly ZX catalogue annotation; numeric code authoritative
+$23,Stealth Blade,friendly ZX catalogue annotation; numeric code authoritative
+$24,Short Sword,friendly ZX catalogue annotation; numeric code authoritative
+$25,Long Sword,friendly ZX catalogue annotation; numeric code authoritative
+$26,Mithril Sword,friendly ZX catalogue annotation; numeric code authoritative
+$27,Fleshbane,friendly ZX catalogue annotation; numeric code authoritative
+$28,Demon Blade,friendly ZX catalogue annotation; numeric code authoritative
+$29,Ace of Swords,friendly ZX catalogue annotation; numeric code authoritative
+$2A,Battle Axe,friendly ZX catalogue annotation; numeric code authoritative
+$2B,Mithril Axe,friendly ZX catalogue annotation; numeric code authoritative
+$2C,Troll's Axe,friendly ZX catalogue annotation; numeric code authoritative
+$2D,Brainbiter,friendly ZX catalogue annotation; numeric code authoritative
+$2E,Deathbringer,friendly ZX catalogue annotation; numeric code authoritative
+$2F,Staff,friendly ZX catalogue annotation; numeric code authoritative
+$30,Battle Staff,friendly ZX catalogue annotation; numeric code authoritative
+$31,Power Staff,friendly ZX catalogue annotation; numeric code authoritative
+$32,Long Bow,friendly ZX catalogue annotation; numeric code authoritative
+$33,Frost Bow,friendly ZX catalogue annotation; numeric code authoritative
+$34,Crossbow,friendly ZX catalogue annotation; numeric code authoritative
+$35,Snake Gem,ZX packed-text/source-correlated
+$36,Chaos Gem,friendly ZX catalogue annotation; numeric code authoritative
+$37,Dragon Gem,friendly ZX catalogue annotation; numeric code authoritative
+$38,Moon Gem,friendly ZX catalogue annotation; numeric code authoritative
+$39,Tan Gem,friendly ZX catalogue annotation; numeric code authoritative
+$3A,Bluish Gem,friendly ZX catalogue annotation; numeric code authoritative
+$3B,Snake Key,ZX packed-text/source-correlated
+$3C,Moon Key,friendly ZX catalogue annotation; numeric code authoritative
+$3D,Dragon Key,friendly ZX catalogue annotation; numeric code authoritative
+$3E,Chaos Key,friendly ZX catalogue annotation; numeric code authoritative
+$3F,Chromatic Key,friendly ZX catalogue annotation; numeric code authoritative
+$40,Snake Wand,ZX packed-text/source-correlated
+$41,Chaos Wand,friendly ZX catalogue annotation; numeric code authoritative
+$42,Dragon Wand,friendly ZX catalogue annotation; numeric code authoritative
+$43,Moon Wand,friendly ZX catalogue annotation; numeric code authoritative
+$44,Heal Wand,friendly ZX catalogue annotation; numeric code authoritative
+$45,Yes Ring,friendly ZX catalogue annotation; numeric code authoritative
+$46,Snake Ring,ZX packed-text/source-correlated
+$47,Chaos Ring,friendly ZX catalogue annotation; numeric code authoritative
+$48,Dragon Ring,friendly ZX catalogue annotation; numeric code authoritative
+$49,Moon Ring,friendly ZX catalogue annotation; numeric code authoritative
+$4A,Player 1 remains,friendly ZX catalogue annotation; numeric code authoritative
+$4B,Player 2 remains,friendly ZX catalogue annotation; numeric code authoritative

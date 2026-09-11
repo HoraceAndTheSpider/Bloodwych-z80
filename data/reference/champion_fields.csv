@@ -1,0 +1,24 @@
+offset,meaning,confidence
+$00,champion ID,PROVEN
+$01,Level,PROVEN
+$02,Strength,PROVEN
+$03,Agility,PROVEN
+$04,Intelligence,PROVEN
+$05,Charisma,PROVEN
+$06,current HP,PROVEN
+$07,maximum HP,PROVEN
+$08,current Vitality,PROVEN
+$09,maximum Vitality,PROVEN
+$0A,Food,PROVEN/STRONG
+$0B,current Spell Points,PROVEN
+$0C,maximum Spell Points,PROVEN
+$0D,base armour/protection,PROVEN
+$0E-$12,runtime/other state; zero in authored templates,OPEN
+$13-$16,shared quantities object $01-$04,PROVEN
+$17-$20,ten actual equipment/pocket slots,PROVEN
+$21,fixed Coinage display object,STRONG
+$22,fixed Common-Key display object,STRONG
+$23,continuing/worn spell packed state,PROVEN structure
+$24,prepared spell index; $FF none,PROVEN
+$25-$26,casting-related runtime fields,STRONG; exact names OPEN
+$27-$2A,32 learned-spell flags,PROVEN

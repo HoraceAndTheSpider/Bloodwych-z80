@@ -1,0 +1,5 @@
+feature_range,kind,descriptor,face_bits,confidence
+$00-$03,plain/other,,feature & 3,STRUCTURAL
+$04-$07,empty gem socket,$950D,feature & 3,PROVEN family/render path
+$08-$0B,switch,$88AC,feature & 3,PROVEN family/render path
+$0C-$0F,filled crystal/gem socket,$950D,feature & 3,PROVEN bitmap family; identity/colour separate
