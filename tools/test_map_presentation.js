@@ -20,8 +20,9 @@ function legacyDecode(value){
     lockId:baseType===2?((value>>5)&7):null
   };
 }
-function floor(floorIndex,width,height,xOffset,yOffset){return {floorIndex,used:true,width,height,xOffset,yOffset,_grid:new Uint8Array(width*height)};}
+function floor(floorIndex,width,height,xOffset,yOffset){return {floorIndex,used:true,width,height,xOffset,yOffset,_grid:new Uint8Array(width*height),_events:new Map()};}
 function put(f,x,y,value){f._grid[y*f.width+x]=value;}
+function putEvent(f,x,y,action){f._events.set(`${x}:${y}`,[{action}]);}
 
 // Raw descriptor interpretation before renderer.js installs the proved +4/+5 correction.
 const tower={floors:[floor(0,10,6,15,0),floor(1,21,21,0,0),floor(2,17,17,2,2)],playerStarts:[],specials:{crystal:[]}};
@@ -36,7 +37,7 @@ context.BWBloodwych={
   getCell(_tape,_tower,f,x,y){
     if(x<0||y<0||x>=f.width||y>=f.height)return null;
     const value=f._grid[y*f.width+x]||0;
-    return {x,y,value,tile:context.BWTiles.decode(value),events:[],objectStacks:[],monsters:[],specialLocations:[]};
+    return {x,y,value,tile:context.BWTiles.decode(value),events:f._events.get(`${x}:${y}`)||[],objectStacks:[],monsters:[],specialLocations:[]};
   }
 };
 vm.createContext(context);
@@ -54,9 +55,15 @@ for(const value of [0x0b,0x0f,0x8b,0x8f])assert.equal(context.BWTiles.decode(val
 assert.equal(context.BWTiles.decode(0x03).presentationKind,'wall');
 assert.equal(context.BWTiles.decode(0x83).presentationKind,'wall');
 assert.equal(context.BWTiles.decode(0x07).presentationKind,'wall');
+assert.equal(context.BWTiles.decode(0x01).presentationKind,'reserved');
 assert.equal(context.BWTiles.decode(0x13).presentationKind,'unknown');
-assert.equal(context.BWTiles.decode(0x19).presentationKind,'pit');
-assert.equal(context.BWTiles.decode(0x21).presentationKind,'upper-hole');
+assert.equal(context.BWTiles.decode(0x19).presentationKind,'upper-hole');
+assert.equal(context.BWTiles.decode(0x21).presentationKind,'pit');
+assert.equal(context.BWTiles.decode(0x33).presentationKind,'dark-fixture');
+assert.equal(context.BWTiles.decode(0x63).presentationKind,'socket-empty');
+assert.equal(context.BWTiles.decode(0xe3).presentationKind,'socket-filled');
+assert.equal(context.BWTiles.decode(0x43).presentationKind,'switch');
+assert.equal(context.BWTiles.decode(0xc3).switchUsed,true);
 assert.equal(context.BWTiles.decode(0x29).presentationKind,'stair-up');
 assert.equal(context.BWTiles.decode(0x31).presentationKind,'stair-down');
 
@@ -105,7 +112,7 @@ assert(rr.ctx.calls.some(c=>c.op==='fillRect'&&c.colour==='#343b43'),'Modern wal
 rr=renderFloor(wf,'amstrad',{showGrid:false});
 assert(rr.ctx.calls.some(c=>c.op==='segment'&&c.colour==='#ffffff'),'Amstrad wall keeps monochrome line treatment');
 rr=renderFloor(wf,'amiga',{showGrid:false});
-assert(rr.ctx.calls.some(c=>c.op==='fillRect'&&c.colour==='#aaaaaa'&&c.w<32&&c.h<32),'Amiga wall keeps AMOS inset block treatment');
+assert(rr.ctx.calls.some(c=>c.op==='fillRect'&&c.colour==='#aaaaaa'&&c.w===32&&c.h===32),'Amiga plain wall must fill the complete cell');
 
 // Facing wall furniture remains style-specific: CPC uses its own white S glyph,
 // Modern uses its teal block, and neither falls back to AMOS geometry.
@@ -135,13 +142,16 @@ assert(rr.ctx.calls.some(c=>c.op==='strokeRect'&&c.colour==='#303030'),'Amiga gr
 rr=renderFloor(wf,'amstrad',{showGrid:true});
 assert(rr.ctx.calls.some(c=>c.op==='strokeRect'&&c.colour==='#3f3f7f'),'Amstrad grid must remain visible');
 
-// Selected-floor boundary: world alignment must NOT enlarge the editable grid.
+// Aligned presentation uses a fixed world canvas, but only the selected-floor
+// cells receive the strong/editable grid.
 const gf=floor(0,2,3,20,15),other=floor(1,9,8,0,0),gt={floors:[gf,other],playerStarts:[],specials:{crystal:[]}};
 let gctx=recordingContext(),gcanvas={width:0,height:0,getContext(){return gctx;}};
 let gm=context.BWRenderer.render(gcanvas,{},gt,gf,{cellSize:16,aligned:true,showGrid:true,style:'amiga',mode:'viewer'});
-assert.equal(gm.gridW,2);assert.equal(gm.gridH,3);assert.equal(gm.originX,0);assert.equal(gm.originY,0);
-assert.equal(gcanvas.width,gm.marginLeft+2*16+8,'canvas width must be selected-floor width only');
-assert.equal(gcanvas.height,gm.marginTop+3*16+8,'canvas height must be selected-floor height only');
+assert.equal(gm.gridW,32);assert.equal(gm.gridH,32);assert.equal(gm.originX,20);assert.equal(gm.originY,15);
+assert.equal(gcanvas.width,gm.marginLeft+32*16+8,'aligned canvas must reserve fixed world width');
+assert.equal(gcanvas.height,gm.marginTop+32*16+8,'aligned canvas must reserve fixed world height');
+const strongGrid=gctx.calls.filter(c=>c.op==='strokeRect'&&c.colour==='#303030'&&Math.abs(c.alpha-1)<.001);
+assert.equal(strongGrid.length,6,'only selected floor cells are presented as editable grid squares');
 
 // LAYOUT: adjacent floor grid geometry and directional elevation content.
 const lb=floor(0,2,2,0,0),lc=floor(1,2,2,0,0),la=floor(2,2,2,0,0);
@@ -150,13 +160,13 @@ put(la,0,0,0x31);put(la,1,0,0x19);put(la,0,1,0x29);put(la,1,1,0x21);
 const lt={floors:[lb,lc,la],playerStarts:[],specials:{crystal:[]}};
 const lctx=recordingContext(),lcanvas={width:0,height:0,getContext(){return lctx;}};
 const lm=context.BWRenderer.render(lcanvas,{},lt,lc,{cellSize:32,aligned:true,showGrid:true,style:'amiga',mode:'layout'});
-assert.equal(lm.layoutNativeShift,1,'adjacent floor grid shift must be one actual canvas pixel');
+assert.equal(lm.layoutNativeShift,6,'32px cells use a clearly visible six-pixel adjacent-floor nudge');
 assert.deepEqual(Array.from(context.BWRenderer.layoutAdjacentKinds('below')).sort(),['stair-up','upper-hole']);
 assert.deepEqual(Array.from(context.BWRenderer.layoutAdjacentKinds('above')).sort(),['pit','stair-down']);
-const adjacentGrid=lctx.calls.filter(c=>c.op==='strokeRect'&&Math.abs(c.alpha-.32)<.001);
+const adjacentGrid=lctx.calls.filter(c=>c.op==='strokeRect'&&Math.abs(c.alpha-.46)<.001);
 assert.equal(adjacentGrid.length,8,'both enabled adjacent floors must draw full translucent 2x2 grids');
-assert(adjacentGrid.some(c=>c.colour==='#69768a'&&Math.abs(c.x-(lm.marginLeft-.5))<.001&&Math.abs(c.y-(lm.marginTop-.5))<.001),'below grid must be shifted -1px');
-assert(adjacentGrid.some(c=>c.colour==='#8798b2'&&Math.abs(c.x-(lm.marginLeft+1.5))<.001&&Math.abs(c.y-(lm.marginTop+1.5))<.001),'above grid must be shifted +1px');
+assert(adjacentGrid.some(c=>c.colour==='#69768a'&&Math.abs(c.x-(lm.marginLeft-5.5))<.001&&Math.abs(c.y-(lm.marginTop-5.5))<.001),'below grid must use the stronger negative nudge');
+assert(adjacentGrid.some(c=>c.colour==='#8798b2'&&Math.abs(c.x-(lm.marginLeft+6.5))<.001&&Math.abs(c.y-(lm.marginTop+6.5))<.001),'above grid must use the stronger positive nudge');
 const currentGrid=lctx.calls.filter(c=>c.op==='strokeRect'&&c.colour==='#2f799e'&&Math.abs(c.alpha-1)<.001);
 assert.equal(currentGrid.length,4,'selected floor grid remains exact and strong');
 const arrows=lctx.calls.filter(c=>c.op==='text'&&(c.v==='↑'||c.v==='↓'));
@@ -165,12 +175,50 @@ assert(arrows.some(c=>c.v==='↑')&&arrows.some(c=>c.v==='↓'),'below shows up 
 
 // Vertical-opening validation mirrors Python layout.py.
 const vb=floor(0,1,1,0,0),vc=floor(1,1,1,0,0),va=floor(2,1,1,0,0);
-put(vb,0,0,0x21);put(vc,0,0,0x19);put(va,0,0,0x19);
+put(vb,0,0,0x19);put(vc,0,0,0x21);put(va,0,0,0x21);
 const vt={floors:[vb,vc,va],playerStarts:[],specials:{crystal:[]}};
 let vaa=context.BWRenderer.layoutAnalysis({},vt);
-assert(!vaa.issues.some(i=>i.floor===1&&i.kind==='pit'),'pit resolves to ceiling hole below');
-put(vc,0,0,0x21);vaa=context.BWRenderer.layoutAnalysis({},vt);
-assert(!vaa.issues.some(i=>i.floor===1&&i.kind==='upper-hole'),'ceiling hole resolves to pit above');
+assert(!vaa.issues.some(i=>i.floor===1&&i.kind==='pit'),'$21 floor pit resolves to $19 ceiling hole below');
+put(vc,0,0,0x19);vaa=context.BWRenderer.layoutAnalysis({},vt);
+assert(!vaa.issues.some(i=>i.floor===1&&i.kind==='upper-hole'),'$19 ceiling hole resolves to $21 pit above');
+
+
+// $01 is Reserved Space unless Event context proves a spinner source.
+const rf=floor(0,1,1,0,0);put(rf,0,0,0x01);
+rr=renderFloor(rf,'amiga',{showGrid:false});
+assert(rr.ctx.calls.some(c=>c.op==='fillRect'&&c.colour==='#444444'&&c.w===32&&c.h===32),'plain $01 Reserved Space is solid dark grey');
+putEvent(rf,0,0,0x0a);
+rr=renderFloor(rf,'amiga',{showGrid:false});
+assert(rr.ctx.calls.some(c=>c.op==='text'&&c.v==='180'),'event action $0A refines $01 Reserved Space to a turn-180 spinner source');
+
+// $33 is the dark/black wall-feature family, not a normal empty socket.
+const darkf=floor(0,1,1,0,0);put(darkf,0,0,0x33);
+rr=renderFloor(darkf,'amiga',{showGrid:false});
+assert(rr.ctx.calls.some(c=>c.op==='fillRect'&&c.colour==='#aaaaaa'&&c.w===32&&c.h===32),'$20 wall-feature family remains a wall');
+assert(rr.ctx.calls.some(c=>c.op==='fillRect'&&c.colour==='#000000'&&c.w<20&&c.h<20),'$20 wall-feature family draws a black wall-mounted fixture');
+
+// Socket state is bit 7 within the $60 family: $63 empty, $E3 filled.
+const sock=floor(0,2,1,0,0);put(sock,0,0,0x63);put(sock,1,0,0xe3);
+assert.equal(context.BWTiles.decode(sock._grid[0]).socketFilled,false);
+assert.equal(context.BWTiles.decode(sock._grid[1]).socketFilled,true);
+assert.equal(context.BWTiles.decode(0x43).switchUsed,false);
+assert.equal(context.BWTiles.decode(0xc3).switchUsed,true);
+assert.equal(context.BWTiles.decode(0x19).featureLabel,'Ceiling / upper hole');
+assert.equal(context.BWTiles.decode(0x21).featureLabel,'Floor pit');
+
+// Door lock index 1 is black; index 3 remains Serpent green.
+const blackDoor=floor(0,1,1,0,0);put(blackDoor,0,0,0x22);
+rr=renderFloor(blackDoor,'amiga',{showGrid:false});
+assert(rr.ctx.calls.some(c=>c.op==='fillRect'&&c.colour==='#000000'&&c.w>20),'lock index 1 must render black');
+const commonDoor=floor(0,1,1,0,0);put(commonDoor,0,0,0x52);
+rr=renderFloor(commonDoor,'amiga',{showGrid:false});
+assert(rr.ctx.calls.some(c=>c.op==='fillRect'&&c.colour==='#e49365'&&c.w>20),'lock index 2 Common Lock uses the tan/off-yellow shade');
+
+
+// Cursor transfer preserves world-space position across differently aligned floors.
+const cf1=floor(0,10,10,4,4),cf2=floor(1,10,10,2,2);
+let cp=context.BWRenderer.worldToFloorCursor(cf2,cf1.xOffset+1,cf1.yOffset+1,true);
+assert.deepEqual({x:cp.x,y:cp.y},{x:3,y:3},'floor switch must translate local cursor through world alignment');
 
 // Default renderer style remains Amiga / AMOS.
 const def=renderFloor(mf,undefined,{showGrid:false});
@@ -181,5 +229,7 @@ console.log('  Amiga / Amstrad / Modern styles remain independent');
 console.log('  grid is painted after cell artwork in all styles');
 console.log('  $29/$31 render as ladders, not stair-step glyphs');
 console.log('  wall fixtures retain facing without collapsing style');
-console.log('  selected-floor grid stays local; Layout adjacent grids are +/-1px');
-console.log('  below: ladder-up + upper-hole; above: ladder-down + pit');
+console.log('  aligned view uses fixed 32x32 world canvas; editable grid remains floor-local');
+console.log('  Layout adjacent grids use visible zoom-scaled nudge');
+console.log('  below: ladder-up + $19 upper-hole; above: ladder-down + $21 pit');
+console.log('  $01 Reserved Space, $33 dark fixture, socket bit7 state and black lock 1');

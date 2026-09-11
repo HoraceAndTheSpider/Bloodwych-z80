@@ -34,27 +34,22 @@ The portable renderer implements the same operation.
 ## Wall overlays: switches and sockets — PROVEN
 
 These are real perspective graphics and must not be replaced with editor icons.
-On a wall cell, `(cell & $60)` selects the overlay family:
+On a wall cell, `(cell & $60)` selects the perspective family while bit 7
+is a **separate state bit**:
 
 ```text
 $40  switch family at descriptor $88AC
-$20  socket family at descriptor $950D
-$60  filled socket uses the $950D bitmap family
-$00  no switch/socket overlay
+$20  dark/reserved wall-feature family using descriptor $950D (2D: wall + black fixture)
+$60  crystal/gem socket family using descriptor $950D
+$00  no switch/socket-family overlay
 ```
 
-Equivalently in the decoded feature nibble `(cell >> 3) & $0F`:
+Facing is held in bits 3-4 (`0=N,1=E,2=S,3=W`). The Z80 visibility comparisons
+use that face relative to the player's facing before calling `$F097`.
 
-```text
-4-7    empty socket, low two bits = wall face
-8-11   switch, low two bits = wall face
-12-15  filled crystal/gem socket, low two bits = wall face
-```
-
-The low two bits are cardinal wall-face codes `0=N,1=E,2=S,3=W`. This is now
-supported by the Z80 visibility comparisons: left, front and right perspective
-surfaces compare the feature face against player-facing-relative directions
-before calling `$F097`.
+For authored socket cells, bit 7 distinguishes state: `$63` is empty and `$E3`
+is the filled form of the same facing/family. The same state bit is retained for
+switch cells and is presented as the used/clicked mark. In the 2D editor this is exposed as **On / unclicked** (bit 7 clear) and **Off / clicked** (bit 7 set). It must therefore not be normalised away as actor occupancy on wall cells.
 
 The proof images `docs/wiki/proofs/switch-overlay-proof.png` and
 `docs/wiki/proofs/socket-overlay-proof.png` show that the source-derived overlays materially change the perspective wall bitmap.
@@ -68,16 +63,17 @@ The dispatcher at `$FCBD` masks the map cell with `$38`:
 $00  no static feature
 $08  $940D — visible floor pad/trigger family
 $10  no static draw — invisible trigger variant
-$18  $92FE
-$20  $938D
-$28  $92FE + additional procedural path
-$30  $938D + additional procedural path
+$18  $92FE — $19 ceiling / upper-hole family
+$20  $938D — $21 floor-pit family
+$28  $92FE + additional procedural path — $29 ladder up
+$30  $938D + additional procedural path — $31 ladder down
 $38  $948D
 ```
 
-Current map semantics identify several `$18/$20/$28/$30/$38` cases as
-ladder-related families. The static graphics are safe to consume; exact friendly
-names and the `$28/$30` procedural supplement remain separated by confidence.
+Cross-floor Level-TZX alignment closes the common `$18/$20/$28/$30` friendly
+names shown above. The `$28/$30` procedural supplement remains relevant to the
+first-person ladder rendering even though the 2D editor presents those cells as
+ladder icons.
 
 ## Painter order — PROVEN
 

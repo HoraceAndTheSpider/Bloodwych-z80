@@ -82,9 +82,9 @@ The previous X/Y interpretation does not align them.
 The same correction is independently confirmed one floor higher:
 
 ```text
-floor 1 $19 pits:       (13,2), (10,13)
+floor 1 $19 ceiling holes: (13,2), (10,13)
 floor 2 stored +4/+5:  2,2
-floor 2 $21 openings:   (11,0), (8,11)
+floor 2 $21 floor pits:     (11,0), (8,11)
 world positions:        (13,2), (10,13)
 ```
 
@@ -135,34 +135,66 @@ A semantic fix (for example a facing switch/socket or Mindrock) must therefore
 be implemented in each style rather than by replacing all three with the AMOS
 geometry.
 
-For presentation, persistent object bit 2 and ordinary actor-occupancy bit 7
-are ignored when identifying a non-door cell. Doors are the exception because
-bits 5-7 belong to their lock/colour field.
+For presentation, persistent object bit 2 is independent of the map icon. Actor
+occupancy bit 7 is ignored only for walkable/floor cells. **Wall cells are also
+an exception:** bit 7 is part of wall-fixture state and must be retained. Doors
+continue to use bits 5-7 as their lock/colour field.
 
 Currently established visual codes include:
 
 ```text
 $00  empty space
+$01  Reserved Space; Event context can refine its purpose
 $03  plain stone wall
 $0B  Mindrock                         user-confirmed presentation
 $09  floor pad / trigger
 $11  invisible floor pad / trigger
-$19  pit / lower opening
-$21  upper / ceiling opening
+$19  ceiling / upper hole
+$21  floor pit
 $29  ladder up family
 $31  ladder down family
 ```
 
-Wall sockets and switches retain their N/E/S/W facing in the map icon. Empty
-and filled sockets are visually distinct. In the Amiga/AMOS style, locked doors use the AMOS convention where the lock
-colour is a line **through the centre of the door**, rather than a coloured
-block placed at the centre. Other presentation styles retain their own door
-language while consuming the same ZX lock/axis semantics.
+Wall fixtures use a different split from the earlier Stage 5 presentation.
+For wall cells, bits 5-6 select the perspective family, bits 3-4 retain N/E/S/W
+facing, and bit 7 retains fixture state:
 
-Any non-door presentation code that is neither a proved/confirmed feature nor
-normalised `$00`/`$03` is deliberately shown in **magenta as unknown**. It must
-not silently fall through to blank space or a plain-wall icon. This makes
-remaining map semantics visible for investigation without fabricating them.
+```text
+cell & $60 = $20   dark / reserved wall-feature family ($950D graphics)
+cell & $60 = $40   switch family ($88AC graphics)
+cell & $60 = $60   crystal / gem socket family ($950D graphics)
+bit 7              state: used/clicked switch, or filled socket
+```
+
+This is why `$63` is an **empty** socket while `$E3` is the corresponding
+**filled** socket. The `$20` family (for example `$33`) is not labelled as a
+normal socket; in the editor it is deliberately presented as a **normal wall with a black wall-mounted fixture** until its exact gameplay role is closed. The wall itself remains visible; only the fixture is black.
+
+In the Amiga/AMOS style, locked doors use the AMOS convention where the lock
+colour is a line **through the centre of the door**, rather than a coloured
+block placed at the centre. The editor-facing lock names are now: `1 Void Lock` (black), `2 Common Lock` (tan/off-yellow), `3 Snake Lock` (green), `4 Chaos Lock` (yellow), `5 Dragon Lock` (red), `6 Moon Lock` (blue), and `7 Chromatic Lock` (white). Index 0 remains Unlocked.
+
+`$01` is no longer magenta unknown. Authoritative Level-TZX examples establish
+it as authored **Reserved Space**, rendered as a single dark-grey cell. Where an
+Event uses that exact cell as its source, the Event can refine the label. A
+proved example is Serpents floor 3 `(4,5)`, whose `$01` source is action `$0A`
+(Turn 180) and is therefore shown as a spinner/turn trigger. `$01` cells without
+such context remain Reserved Space.
+
+Other unrecognised presentation codes are deliberately shown in **magenta as
+unknown**. They must not silently fall through to blank space or a plain wall.
+
+
+### Cell-property editor labels/state
+
+The MAPS cell editor follows the same byte semantics as the renderer:
+
+- raw floor feature `$3` is labelled **Ceiling Hole**;
+- raw floor feature `$4` is **Floor Pit**;
+- wall-family `$20` is **Dark wall fixture / reserved wall feature**;
+- switches expose a separate state control: **On / unclicked** versus **Off / clicked**; the latter is bit 7 set and is rendered with the black clicked mark;
+- Empty Socket, Switch and Filled Socket selections now write the correct `$60/$40/$E0` wall-family encodings rather than the earlier feature-nibble approximation;
+- the wall-feature dropdown is re-synchronised from the decoded byte after every edit, so choosing Empty Gem Socket does not visually fall back to Plain wall.
 
 ### Layout/elevation validation
 
@@ -178,8 +210,8 @@ shows only established elevation-change families:
 
 ```text
 $29 / $31  ladders up / down
-$19        pit / lower opening
-$21        upper / ceiling opening
+$19        ceiling / upper hole
+$21        floor pit
 ```
 
 Adjacent-floor previews follow the Python editor's **world-aligned floor
@@ -189,21 +221,26 @@ offset and drawn translucently behind the selected floor. The selected floor's
 editable grid is still exactly its own `width x height`; the adjacent grid is a
 visual comparison layer only and cannot be clicked as extra map cells.
 
-To make coincident grid lines visible, the below-floor grid is displaced
-**-1 actual canvas pixel** on both axes and the above-floor grid **+1 actual
-canvas pixel** on both axes. This is a fixed presentation displacement rather
-than a zoom-scaled map offset. Adjacent grids are drawn at about 32% opacity.
+The aligned view now uses a **fixed world canvas of at least 32 × 32 cells**.
+A selected floor is placed on that canvas at its X/Y alignment offset, but only
+its actual `width × height` cells receive the strong/editable grid. This removes
+the misleading editable-looking border while keeping enough world space to see
+misaligned adjacent floors.
+
+To make coincident adjacent-floor grid lines visible, their preview is nudged
+by approximately **one fifth of the current cell size** on both axes (below negative, above positive; 6 px at a 32 px cell). This gives the adjacent geometry a clearer separation at ordinary zoom levels. Adjacent grids are drawn at about 46% opacity and adjacent elevation symbols at about 62% opacity, so the comparison layer remains visibly distinct without overpowering the selected floor.
 
 Adjacent-floor *contents* are filtered to the elevation features that can link
 back to the selected floor:
 
 ```text
-below floor  $29 ladder UP, $21 ceiling/upper hole
-above floor  $31 ladder DOWN, $19 floor pit
+below floor  $29 ladder UP, $19 ceiling/upper hole
+above floor  $31 ladder DOWN, $21 floor pit
 ```
 
-This matches the Python Layout check: a floor pit expects a ceiling hole on
-`floor - 1`, while a ceiling/upper hole expects a floor pit on `floor + 1`.
+This matches the Python/Layout correlation: a `$21` floor pit expects a `$19`
+ceiling hole on `floor - 1`, while a `$19` ceiling/upper hole expects a `$21`
+floor pit on `floor + 1`.
 Ladders retain their corresponding up/down adjacent-floor relationship.
 
 The selected floor itself continues to show all established elevation-change
@@ -218,3 +255,15 @@ The selected-floor grid is drawn **after** the cell artwork in all three map
 styles. This prevents wall/floor fills from erasing grid lines. The adjacent
 Layout grids remain lower/translucent layers, while the selected-floor grid is
 the strongest layer.
+
+
+### Cursor and floor switching
+
+The map cursor is a flashing selection outline. When changing floors, the editor
+preserves the cursor's **world-space position** rather than its old local X/Y.
+For example, if the next floor is aligned two cells differently, a local `(1,1)`
+selection may become `(3,3)` on that floor. If the projected world position lies
+outside the new floor, it is clamped to the nearest valid local cell.
+
+`FIT` in aligned/Layout mode fits the fixed world canvas, not just the selected
+floor bounds.

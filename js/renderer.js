@@ -12,9 +12,9 @@
  * before app.js is loaded: descriptor +4 is Y alignment and +5 is X alignment.
  * Serpents is the regression proof: F0 $29 stairs at local (1,5)/(7,5), with
  * descriptor bytes 15,0, align at world (1,20)/(7,20) with F1 $31 stairs only
- * when +4=Y and +5=X. Vertical pit/hole validation follows the Python
- * Layout checker: a floor pit resolves to a ceiling hole on floor-1, while a
- * ceiling/upper hole resolves to a pit on floor+1.
+ * when +4=Y and +5=X. Vertical pit/hole validation follows the Python Layout checker: $19 is
+ * a ceiling/upper hole and resolves to a $21 floor pit above; $21 is a floor
+ * pit and resolves to a $19 ceiling/upper hole below.
  */
 (function(global){
   'use strict';
@@ -22,7 +22,8 @@
   const AMIGA=['#000000','#444444','#666666','#888888','#aaaaaa','#098a28','#18c229','#003fd1','#4488ee','#7c2617','#ad3622','#e49365','#d31b20','#efd31c','#eeeeee','#b7008a'];
   const MODERN=['#f1f5f4','#c5cdd3','#82909c','#647687','#343b43','#399457','#14b8a6','#3467be','#4488ee','#8a5140','#b56a35','#d39963','#d94a55','#d4b72a','#f6f8f9','#ff00ff'];
   const CPC=['#000000','#0000aa','#00aaaa','#ffffff','#555555','#00aa00','#00ff00','#0000ff','#55aaff','#aa5500','#ff5500','#ffaa55','#ff0000','#ffff00','#ffffff','#ff00ff'];
-  const LOCK_COLOURS=['#888888','#7c2617','#444444','#18c229','#efd31c','#d31b20','#003fd1','#eeeeee'];
+  const LOCK_COLOURS=['#888888','#000000','#e49365','#18c229','#efd31c','#d31b20','#003fd1','#eeeeee'];
+  const LOCK_NAMES=['Unlocked','Void Lock','Common Lock','Snake Lock','Chaos Lock','Dragon Lock','Moon Lock','Chromatic Lock'];
   const MOD={floor:'#f1f5f4',floor2:'#e7eeec',wall:'#343b43',wallLine:'#59636c',door:'#c9792b',switch:'#14b8a6',socket:'#7666d8',pad:'#b78a0a',ladder:'#3977c3',pit:'#59636c',hole:'#647687',mindrock:'#5d7083',grid:'#c5cdd3',ink:'#14202a'};
   const CPC_INK='#ffffff';
   const SPECIAL_COLOURS={
@@ -34,6 +35,9 @@
   const BELOW_ELEVATION_KINDS=new Set(['stair-up','upper-hole']);
   const ABOVE_ELEVATION_KINDS=new Set(['stair-down','pit']);
   const MAGENTA='#ff00ff';
+  const WORLD_GRID_MIN=32;
+  const RESERVED='#444444';
+  let cursorPhase=true,lastRenderState=null,pendingWorldCursor=null;
 
   function byId(id){return typeof document!=='undefined'?document.getElementById(id):null;}
   function palette(style){return style==='modern'?MODERN:style==='amstrad'?CPC:AMIGA;}
@@ -92,74 +96,107 @@
     if(!tiles||tiles.__amosPresentationPatched)return;
     const oldDecode=tiles.decode;
     tiles.decode=function(value){
-      const t=oldDecode(value);
-      const raw=value&255;
+      const t=oldDecode(value),raw=value&255,base=raw&3;
+      t.presentationCode=raw;t.knownPresentation=true;
 
-      /* Door bit 7 is lock/colour, not occupancy, so doors retain the raw
-       * upper bits. For every other cell only the persistent Object bit 2 and
-       * actor occupancy bit 7 are ignored for presentation classification. */
-      if(t.baseType===2){
-        t.presentationCode=raw;
-        t.presentationKind='door';
-        t.knownPresentation=true;
+      /* Door bits 5-7 are the lock/colour selector. */
+      if(base===2){
+        t.presentationKind='door';t.kind='door';t.knownPresentation=true;
         return t;
       }
-      const core=raw&0x7b; // clear bit 7 occupancy + bit 2 Object marker
-      t.presentationCode=core;
-      t.knownPresentation=true;
 
-      if(core===0x00){
-        t.presentationKind='space';t.kind='floor';t.featureLabel='Floor / space';
-      }else if(core===0x03){
-        t.presentationKind='wall';t.kind='wall';t.wallFeature='plain';t.featureLabel='Plain stone wall';
-      }else if(core===0x0b){
-        /* User-correlated against the original editor/game presentation. It
-         * must not fall through to the plain-wall glyph simply because low
-         * bits are 3. */
-        t.presentationKind='mindrock';t.kind='mindrock';t.wallFeature='other';
-        t.featureLabel='Mindrock';t.confidence='user-confirmed-presentation';
-        t.note='ZX map presentation: normalised $0B is Mindrock.';
-      }else if(core===0x09){
-        t.presentationKind='pad';t.kind='pad';t.featureLabel='Floor pad / trigger';
-      }else if(core===0x11){
-        t.presentationKind='invisible-pad';t.kind='pad';t.featureLabel='Invisible floor pad / trigger';
-      }else if(core===0x19){
-        t.presentationKind='pit';t.kind='pit';t.featureLabel='Pit / lower opening';t.confidence='user-confirmed';
-      }else if(core===0x21){
-        t.presentationKind='upper-hole';t.kind='upper-hole';t.featureLabel='Upper / ceiling hole';t.confidence='alignment-proven';
-      }else if(core===0x29){
-        t.presentationKind='stair-up';t.kind='ladder-up';t.featureLabel='Stairs / ladder up';
-      }else if(core===0x31){
-        t.presentationKind='stair-down';t.kind='ladder-down';t.featureLabel='Stairs / ladder down';
-      }else if((core&3)===3){
-        const feature=(core>>3)&15;
-        const face=['N','E','S','W'][feature&3];
-        if(feature>=4&&feature<=7){
-          t.presentationKind='socket-empty';t.kind='socket';t.wallFeature='socket';t.socketFilled=false;t.facing=face;t.featureLabel='Empty gem socket';
-        }else if(feature>=8&&feature<=11){
-          t.presentationKind='switch';t.kind='switch';t.wallFeature='switch';t.facing=face;t.featureLabel='Switch';
-        }else if(feature>=12&&feature<=15){
-          t.presentationKind='socket-filled';t.kind='socket';t.wallFeature='socket';t.socketFilled=true;t.facing=face;t.featureLabel='Filled crystal / gem socket';
+      /* Object bit 2 is independent presentation state. Actor occupancy bit 7
+       * is runtime occupancy only for walkable/floor cells. On wall cells bit 7
+       * belongs to the wall-fixture state and must be retained. */
+      if(base===3){
+        const wallRaw=raw&0xfb;              // ignore object bit only
+        const low7=wallRaw&0x7f;
+        const family=wallRaw&0x60;
+        const face=['N','E','S','W'][(wallRaw>>3)&3];
+        const state=!!(wallRaw&0x80);
+        t.occupied=false;t.fixtureState=state;t.facing=face;
+        t.presentationCode=wallRaw;
+
+        if(low7===0x03){
+          t.presentationKind='wall';t.kind='wall';t.wallFeature='plain';t.featureLabel='Plain stone wall';
+        }else if(low7===0x0b){
+          t.presentationKind='mindrock';t.kind='mindrock';t.wallFeature='other';
+          t.featureLabel='Mindrock';t.confidence='user-confirmed-presentation';
+          t.note='ZX map presentation: $0B/$8B family is Mindrock.';
+        }else if(family===0x20){
+          t.presentationKind='dark-fixture';t.kind='wall';t.wallFeature='dark-fixture';
+          t.featureLabel='Dark wall fixture / reserved wall feature';t.confidence='strong-code-derived';
+          t.note='ZX perspective dispatcher selects the $950D wall-feature family; exact gameplay role remains open.';
+        }else if(family===0x40){
+          t.presentationKind='switch';t.kind='switch';t.wallFeature='switch';t.switchUsed=state;
+          t.featureLabel=state?'Switch (used / clicked)':'Switch';t.confidence='strong-code-and-data-derived';
+        }else if(family===0x60){
+          t.presentationKind=state?'socket-filled':'socket-empty';t.kind='socket';t.wallFeature='socket';
+          t.socketFilled=state;t.featureLabel=state?'Filled crystal / gem socket':'Empty crystal / gem socket';
+          t.confidence='strong-code-and-data-derived';
         }else{
           t.knownPresentation=false;
         }
       }else{
-        t.knownPresentation=false;
+        const core=raw&0x7b; // walkable cells: ignore object + actor occupancy
+        t.presentationCode=core;
+        if(core===0x00){
+          t.presentationKind='space';t.kind='floor';t.featureLabel='Floor / space';
+        }else if(core===0x01){
+          t.presentationKind='reserved';t.kind='floor-feature';t.featureLabel='Reserved Space';
+          t.confidence='source-confirmed-value';t.note='Authored $01 cell. Event context may refine its purpose.';
+        }else if(core===0x09){
+          t.presentationKind='pad';t.kind='pad';t.featureLabel='Floor pad / trigger';
+        }else if(core===0x11){
+          t.presentationKind='invisible-pad';t.kind='pad';t.featureLabel='Invisible floor pad / trigger';
+        }else if(core===0x19){
+          t.presentationKind='upper-hole';t.kind='upper-hole';t.featureLabel='Ceiling / upper hole';t.confidence='cross-floor-proven';
+        }else if(core===0x21){
+          t.presentationKind='pit';t.kind='pit';t.featureLabel='Floor pit';t.confidence='cross-floor-proven';
+        }else if(core===0x29){
+          t.presentationKind='stair-up';t.kind='ladder-up';t.featureLabel='Ladder up';
+        }else if(core===0x31){
+          t.presentationKind='stair-down';t.kind='ladder-down';t.featureLabel='Ladder down';
+        }else{
+          t.knownPresentation=false;
+        }
       }
 
       if(!t.knownPresentation){
         t.presentationKind='unknown';t.kind='unknown';
-        t.featureLabel=`Unknown map cell $${hex2(core)}`;
+        t.featureLabel=`Unknown map cell $${hex2(t.presentationCode)}`;
         t.confidence='open';
-        t.note='Not $00/$03 and no confirmed presentation rule. Object/occupancy bits are ignored for this classification.';
+        t.note='No confirmed ZX presentation rule. Object/ordinary actor occupancy bits are ignored only where structurally valid.';
       }
       return t;
     };
     tiles.__amosPresentationPatched=true;
   }
 
+  function installContextualCellPresentation(){
+    const bw=global.BWBloodwych;if(!bw||bw.__contextualMapPresentation)return;
+    const oldGet=bw.getCell;if(!oldGet)return;
+    bw.getCell=function(){
+      const c=oldGet.apply(this,arguments);if(!c||!c.tile||c.tile.presentationKind!=='reserved')return c;
+      const actions=(c.events||[]).map(e=>e.action);
+      if(actions.includes(0x0a)){
+        c.contextualPresentation='spinner-180';c.tile.featureLabel='Turn 180 spinner / trigger';
+        c.tile.confidence='event-source-proven';c.tile.note='Authored $01 source cell linked to Event action $0A.';
+      }else if(actions.includes(0x08)){
+        c.contextualPresentation='spinner-random';c.tile.featureLabel='Random spinner / trigger';
+        c.tile.confidence='event-source-proven';
+      }else if(actions.includes(0x0c)){
+        c.contextualPresentation='spinner-quarter';c.tile.featureLabel='Random ±90° spinner / trigger';
+        c.tile.confidence='event-source-proven';
+      }
+      return c;
+    };
+    bw.__contextualMapPresentation=true;
+  }
+
   installAlignmentCorrection();
   installTilePresentation();
+  installContextualCellPresentation();
 
   /* -----------------------------------------------------------------------
    * Presentation primitives.  Semantic kinds are shared, but Modern, CPC and
@@ -189,7 +226,7 @@
     lrect(ctx,x,y,s,colour,x1,y1,x2-x1+1,1,alpha);lrect(ctx,x,y,s,colour,x1,y2,x2-x1+1,1,alpha);
     lrect(ctx,x,y,s,colour,x1,y1,1,y2-y1+1,alpha);lrect(ctx,x,y,s,colour,x2,y1,1,y2-y1+1,alpha);
   }
-  function wallAmiga(ctx,x,y,s){lrect(ctx,x,y,s,AMIGA[4],1,2,15,6);}
+  function wallAmiga(ctx,x,y,s){ctx.fillStyle=AMIGA[4];ctx.fillRect(x,y,s,s);}
 
   /* The ZX editor describes these as ladders.  Keep the vertical rails/rungs
      used by the earlier HTML presentation; do not silently replace them with
@@ -213,8 +250,8 @@
   function drawAmigaFixture(ctx,x,y,s,cell){
     const t=cell.tile,dir=['N','E','S','W'].indexOf(t.facing);if(dir<0)return;
     const isSwitch=t.presentationKind==='switch',filled=t.presentationKind==='socket-filled';
-    const sp=specialForCell(cell);let outer=isSwitch?AMIGA[14]:(filled?(sp?specialColour(sp):AMIGA[14]):AMIGA[14]);
-    const inner=isSwitch?AMIGA[0]:(filled?outer:AMIGA[0]);
+    const sp=specialForCell(cell),outer=isSwitch?AMIGA[14]:(sp?specialColour(sp):AMIGA[14]);
+    const inner=isSwitch?(t.switchUsed?AMIGA[0]:outer):(filled?outer:AMIGA[0]);
     if(dir===0){lrect(ctx,x,y,s,outer,7,1,2,3);lrect(ctx,x,y,s,outer,5,1,6,2);lrect(ctx,x,y,s,inner,7,1,2,1);}
     else if(dir===1){lrect(ctx,x,y,s,outer,10,4,6,1);lrect(ctx,x,y,s,outer,12,3,4,3);lrect(ctx,x,y,s,inner,14,4,2,1);}
     else if(dir===2){lrect(ctx,x,y,s,outer,7,5,2,3);lrect(ctx,x,y,s,outer,5,6,6,2);lrect(ctx,x,y,s,inner,7,7,2,1);}
@@ -223,14 +260,49 @@
 
   function drawModernFixture(ctx,x,y,s,cell){
     const t=cell.tile,a=fixtureAnchor(t.facing,x,y,s),isSwitch=t.presentationKind==='switch',filled=t.presentationKind==='socket-filled',sp=specialForCell(cell);
-    if(isSwitch){ctx.fillStyle=MOD.switch;ctx.fillRect(a.cx-s*.11,a.cy-s*.11,s*.22,s*.22);ctx.strokeStyle='#ffffff';ctx.lineWidth=Math.max(1,s*.035);ctx.strokeRect(a.cx-s*.08,a.cy-s*.08,s*.16,s*.16);}
-    else {const c=filled?(sp?specialColour(sp):MOD.socket):MOD.socket;ctx.strokeStyle=c;ctx.lineWidth=Math.max(2,s*.05);ctx.strokeRect(a.cx-s*.11,a.cy-s*.11,s*.22,s*.22);if(filled){ctx.fillStyle=c;ctx.beginPath();ctx.arc(a.cx,a.cy,s*.065,0,Math.PI*2);ctx.fill();}}
+    if(isSwitch){
+      ctx.fillStyle=MOD.switch;ctx.fillRect(a.cx-s*.11,a.cy-s*.11,s*.22,s*.22);ctx.strokeStyle='#ffffff';ctx.lineWidth=Math.max(1,s*.035);ctx.strokeRect(a.cx-s*.08,a.cy-s*.08,s*.16,s*.16);
+      if(t.switchUsed){ctx.fillStyle='#000';ctx.fillRect(a.cx-s*.045,a.cy-s*.045,s*.09,s*.09);}
+    }else{
+      const c=sp?specialColour(sp):MOD.socket;ctx.strokeStyle=c;ctx.lineWidth=Math.max(2,s*.05);ctx.strokeRect(a.cx-s*.11,a.cy-s*.11,s*.22,s*.22);
+      if(filled){ctx.fillStyle=c;ctx.beginPath();ctx.arc(a.cx,a.cy,s*.065,0,Math.PI*2);ctx.fill();}
+    }
   }
 
   function drawAmstradFixture(ctx,x,y,s,cell){
     const t=cell.tile,a=fixtureAnchor(t.facing,x,y,s),isSwitch=t.presentationKind==='switch',filled=t.presentationKind==='socket-filled';
-    if(isSwitch)text(ctx,'S',a.cx,a.cy,s*.22,CPC_INK);
+    if(isSwitch){ctx.strokeStyle=CPC_INK;ctx.lineWidth=1;ctx.strokeRect(a.cx-s*.10,a.cy-s*.10,s*.20,s*.20);if(t.switchUsed){ctx.fillStyle='#000';ctx.fillRect(a.cx-s*.055,a.cy-s*.055,s*.11,s*.11);}else text(ctx,'S',a.cx,a.cy,s*.18,CPC_INK);}
     else {ctx.strokeStyle=CPC_INK;ctx.lineWidth=1;ctx.strokeRect(a.cx-s*.10,a.cy-s*.10,s*.20,s*.20);if(filled){ctx.fillStyle=CPC_INK;ctx.fillRect(a.cx-s*.045,a.cy-s*.045,s*.09,s*.09);}}
+  }
+
+  function drawDarkFixture(ctx,x,y,s,style,cell){
+    /* $20-family wall fixture: this remains a wall, with a black wall-mounted
+       switch/fixture at the encoded face.  The previous all-black fill erased
+       the wall itself and made $23/$2B/$33/$3B appear blank. */
+    if(style==='modern')wallModern(ctx,x,y,s);
+    else if(style==='amstrad')wallAmstrad(ctx,x,y,s);
+    else wallAmiga(ctx,x,y,s);
+    const face=cell&&cell.tile?cell.tile.facing:null,a=fixtureAnchor(face,x,y,s);
+    if(style==='amiga'){
+      const dir=['N','E','S','W'].indexOf(face);if(dir<0)return;
+      if(dir===0){lrect(ctx,x,y,s,AMIGA[0],7,1,2,3);lrect(ctx,x,y,s,AMIGA[0],5,1,6,2);}
+      else if(dir===1){lrect(ctx,x,y,s,AMIGA[0],10,4,6,1);lrect(ctx,x,y,s,AMIGA[0],12,3,4,3);}
+      else if(dir===2){lrect(ctx,x,y,s,AMIGA[0],7,5,2,3);lrect(ctx,x,y,s,AMIGA[0],5,6,6,2);}
+      else {lrect(ctx,x,y,s,AMIGA[0],1,4,6,1);lrect(ctx,x,y,s,AMIGA[0],1,3,4,3);}
+    }else{
+      if(style==='amstrad'){ctx.strokeStyle=CPC_INK;ctx.lineWidth=1;ctx.strokeRect(a.cx-s*.11,a.cy-s*.11,s*.22,s*.22);}
+      ctx.fillStyle='#000000';ctx.fillRect(a.cx-s*.085,a.cy-s*.085,s*.17,s*.17);
+    }
+  }
+
+  function drawReserved(ctx,x,y,s,style){
+    ctx.fillStyle=style==='modern'?'#555b62':style==='amstrad'?'#555555':RESERVED;ctx.fillRect(x,y,s,s);
+  }
+
+  function drawSpinner(ctx,x,y,s,style,kind){
+    drawReserved(ctx,x,y,s,style);const c=style==='modern'?'#f6f8f9':style==='amstrad'?CPC_INK:AMIGA[14];
+    ctx.strokeStyle=c;ctx.lineWidth=Math.max(1,s*.045);ctx.beginPath();ctx.arc(x+s*.5,y+s*.5,s*.25,0,Math.PI*1.55);ctx.stroke();
+    text(ctx,kind==='spinner-180'?'180':'↻',x+s*.5,y+s*.52,s*.18,c);
   }
 
   function drawAmigaDoor(ctx,x,y,s,cell){
@@ -301,6 +373,8 @@
     if(k==='wall')wallModern(ctx,x,y,s);
     else if(k==='door')drawModernDoor(ctx,x,y,s,cell);
     else if(k==='switch'||k==='socket-empty'||k==='socket-filled'){wallModern(ctx,x,y,s);drawModernFixture(ctx,x,y,s,cell);}
+    else if(k==='dark-fixture')drawDarkFixture(ctx,x,y,s,'modern',cell);
+    else if(k==='reserved'){if(cell.contextualPresentation)drawSpinner(ctx,x,y,s,'modern',cell.contextualPresentation);else drawReserved(ctx,x,y,s,'modern');}
     else if(k==='mindrock')drawMindrock(ctx,x,y,s,'modern');
     else if(k==='pad'||k==='invisible-pad'||k==='pit'||k==='upper-hole')drawPadFamily(ctx,x,y,s,'modern',k);
     else if(k==='stair-up'||k==='stair-down')ladder(ctx,x,y,s,MOD.ladder,k==='stair-up','modern');
@@ -313,6 +387,8 @@
     if(k==='wall')wallAmstrad(ctx,x,y,s);
     else if(k==='door')drawAmstradDoor(ctx,x,y,s,cell);
     else if(k==='switch'||k==='socket-empty'||k==='socket-filled'){wallAmstrad(ctx,x,y,s);drawAmstradFixture(ctx,x,y,s,cell);}
+    else if(k==='dark-fixture')drawDarkFixture(ctx,x,y,s,'amstrad',cell);
+    else if(k==='reserved'){if(cell.contextualPresentation)drawSpinner(ctx,x,y,s,'amstrad',cell.contextualPresentation);else drawReserved(ctx,x,y,s,'amstrad');}
     else if(k==='mindrock')drawMindrock(ctx,x,y,s,'amstrad');
     else if(k==='pad'||k==='invisible-pad'||k==='pit'||k==='upper-hole')drawPadFamily(ctx,x,y,s,'amstrad',k);
     else if(k==='stair-up'||k==='stair-down')ladder(ctx,x,y,s,CPC_INK,k==='stair-up','amstrad');
@@ -326,6 +402,8 @@
     if(k==='wall')wallAmiga(ctx,x,y,s);
     else if(k==='door')drawAmigaDoor(ctx,x,y,s,cell);
     else if(k==='switch'||k==='socket-empty'||k==='socket-filled'){wallAmiga(ctx,x,y,s);drawAmigaFixture(ctx,x,y,s,cell);}
+    else if(k==='dark-fixture')drawDarkFixture(ctx,x,y,s,'amiga',cell);
+    else if(k==='reserved'){if(cell.contextualPresentation)drawSpinner(ctx,x,y,s,'amiga',cell.contextualPresentation);else drawReserved(ctx,x,y,s,'amiga');}
     else if(k==='mindrock')drawMindrock(ctx,x,y,s,'amiga');
     else if(k==='pad'||k==='invisible-pad'||k==='pit'||k==='upper-hole')drawPadFamily(ctx,x,y,s,'amiga',k);
     else if(k==='stair-up'||k==='stair-down')ladder(ctx,x,y,s,AMIGA[k==='stair-up'?3:2],k==='stair-up','amiga');
@@ -378,13 +456,113 @@
   function modeName(){const e=typeof document!=='undefined'?document.querySelector('.mode-tabs button.active'):null;return e&&e.dataset?e.dataset.mode:'viewer';}
   function checked(id,defaultValue=false){const e=byId(id);return e?!!e.checked:defaultValue;}
 
+  function floorWorldSize(tower){
+    const used=(tower.floors||[]).filter(f=>f.used);return {
+      w:Math.max(WORLD_GRID_MIN,...used.map(f=>f.xOffset+f.width)),
+      h:Math.max(WORLD_GRID_MIN,...used.map(f=>f.yOffset+f.height))
+    };
+  }
+
+  function worldToFloorCursor(f,wx,wy,clamp=true){
+    let x=wx-f.xOffset,y=wy-f.yOffset;
+    if(clamp){x=Math.max(0,Math.min(f.width-1,x));y=Math.max(0,Math.min(f.height-1,y));}
+    return {x,y,inside:x>=0&&y>=0&&x<f.width&&y<f.height};
+  }
+
+  function rememberWorldCursor(){
+    const st=lastRenderState;if(!st||!st.options||!st.options.selected||!st.floor)return;
+    pendingWorldCursor={x:st.floor.xOffset+st.options.selected.x,y:st.floor.yOffset+st.options.selected.y};
+  }
+
+  function applyPendingWorldCursor(){
+    if(!pendingWorldCursor||!lastRenderState||typeof MouseEvent==='undefined')return;
+    const st=lastRenderState,f=st.floor,m=st.metrics,canvas=st.canvas;if(!f||!m||!canvas)return;
+    const pos=worldToFloorCursor(f,pendingWorldCursor.x,pendingWorldCursor.y,true);pendingWorldCursor=null;
+    const x=pos.x,y=pos.y;
+    const rect=canvas.getBoundingClientRect();if(!rect.width||!rect.height)return;
+    const px=m.marginLeft+(m.originX+x+.5)*m.cellSize,py=m.marginTop+(m.originY+y+.5)*m.cellSize;
+    canvas.dispatchEvent(new MouseEvent('click',{bubbles:true,clientX:rect.left+px*rect.width/canvas.width,clientY:rect.top+py*rect.height/canvas.height}));
+  }
+
   function installUi(){
     if(typeof document==='undefined')return;const sel=byId('mapStyle');
     if(sel){const modern=sel.querySelector('option[value="modern"]'),amiga=sel.querySelector('option[value="amiga"]'),cpc=sel.querySelector('option[value="amstrad"]');if(modern)modern.textContent='Modern';if(cpc)cpc.textContent='CPC / Amstrad';if(amiga)amiga.textContent='Amiga / AMOS';sel.value='amiga';}
+    if(!byId('bwLockColourCorrection')){const css=document.createElement('style');css.id='bwLockColourCorrection';css.textContent='.lock-swatch.lock-1{background:#000!important}.lock-swatch.lock-2{background:#e49365!important}';document.head.appendChild(css);}
     const tabs=document.querySelector('.mode-tabs');if(tabs&&!tabs.__mapPresentationHook){tabs.addEventListener('click',event=>{if(!event.target.closest('button[data-mode]'))return;setTimeout(()=>{const proxy=byId('showGrid');if(proxy)proxy.dispatchEvent(new Event('input',{bubbles:true}));},0);});tabs.__mapPresentationHook=true;}
     const strip=document.querySelector('.overlay-strip');if(strip&&!byId('ovLayoutAbove')){
       const defs=[['ovLayoutAbove','ABOVE FLOOR',true,'Layout: translucent floor +1 grid and downward/opening features'],['ovLayoutBelow','BELOW FLOOR',true,'Layout: translucent floor -1 grid and upward/opening features'],['ovLayoutLinks','STAIR LINKS',false,'Layout: show verified inter-floor stair links']];
       for(const [id,label,on,title] of defs){const lab=document.createElement('label');lab.className='layout-overlay-control';lab.title=title;const input=document.createElement('input');input.type='checkbox';input.id=id;input.checked=on;lab.append(input,document.createTextNode(' '+label));strip.appendChild(lab);input.addEventListener('input',()=>{const proxy=byId('showGrid');if(proxy)proxy.dispatchEvent(new Event('input',{bubbles:true}));});}
+    }
+    if(!document.__bwFloorCursorHook){
+      document.addEventListener('click',e=>{if(e.target&&e.target.closest&&e.target.closest('[data-floor-index]')){rememberWorldCursor();setTimeout(applyPendingWorldCursor,0);}},true);
+      const floorSel=byId('floor');if(floorSel)floorSel.addEventListener('change',()=>{rememberWorldCursor();setTimeout(applyPendingWorldCursor,0);},true);
+      document.__bwFloorCursorHook=true;
+    }
+    const fit=byId('fitMap');if(fit&&!fit.__bwWorldFitHook){fit.addEventListener('click',e=>{
+      if(!lastRenderState)return;e.preventDefault();e.stopImmediatePropagation();
+      const area=byId('mapArea'),zoom=byId('zoom');if(!area||!zoom)return;
+      const mode=modeName(),aligned=mode==='layout'||checked('aligned',true),f=lastRenderState.floor,t=lastRenderState.tower;
+      const sz=aligned?floorWorldSize(t):{w:f.width,h:f.height};
+      const cell=Math.max(18,Math.min(48,Math.floor(Math.min((area.clientWidth-70)/Math.max(1,sz.w),(area.clientHeight-70)/Math.max(1,sz.h)))));
+      zoom.value=String(cell);zoom.dispatchEvent(new Event('input',{bubbles:true}));
+    },true);fit.__bwWorldFitHook=true;}
+
+    /* MAPS cell-property controls are generated by app.js.  Keep its general
+       editor intact, but replace the wall-family choices with the now-proven
+       ZX encoding and expose switch bit-7 state explicitly. */
+    function applyCellPropertyPresentation(){
+      const box=byId('cellProperties'),rawInput=byId('editByte');if(!box||!rawInput)return;
+      const raw=parseInt(String(rawInput.value||''),16);if(!Number.isFinite(raw))return;
+      const t=global.BWTiles&&global.BWTiles.decode?global.BWTiles.decode(raw):null;if(!t)return;
+      const wall=box.querySelector('select[data-cell-prop="wall-kind"]');
+      if(wall&&t.baseType===3){
+        const values=[['plain','Plain wall'],['dark-fixture','Dark wall fixture / reserved wall feature'],['socket','Empty gem socket'],['switch','Switch'],['socket-full','Filled crystal / gem socket']];
+        if(t.presentationKind==='mindrock')values.push(['mindrock','Mindrock']);
+        let current=t.presentationKind==='wall'?'plain':t.presentationKind==='dark-fixture'?'dark-fixture':t.presentationKind==='switch'?'switch':t.presentationKind==='socket-empty'?'socket':t.presentationKind==='socket-filled'?'socket-full':t.presentationKind==='mindrock'?'mindrock':'other';
+        if(current==='other')values.push(['other',`Other raw wall feature $${hex2(raw)}`]);
+        const sig=current+'|'+String(t.facing||'')+'|'+String(!!t.switchUsed)+'|'+String(!!t.socketFilled);
+        if(wall.dataset.bwPresentationSig!==sig){wall.innerHTML=values.map(([v,n])=>`<option value="${v}"${v===current?' selected':''}>${n}</option>`).join('');wall.value=current;wall.dataset.bwPresentationSig=sig;}
+        if(['dark-fixture','switch','socket','socket-full'].includes(current)&&!box.querySelector('select[data-cell-prop="wall-face"]')){
+          const row=document.createElement('div');row.className='property-row';row.innerHTML='<span>FACE</span><select data-cell-prop="wall-face">'+['N','E','S','W'].map((n,i)=>`<option value="${i}"${t.facing===n?' selected':''}>${n}</option>`).join('')+'</select>';wall.closest('.property-row').after(row);
+        }
+        if(current==='switch'&&!box.querySelector('[data-bw-cell-prop="switch-state"]')){
+          const row=document.createElement('div');row.className='property-row';row.innerHTML=`<span>STATE</span><select data-bw-cell-prop="switch-state"><option value="0"${t.switchUsed?'':' selected'}>On / unclicked</option><option value="1"${t.switchUsed?' selected':''}>Off / clicked</option></select>`;
+          const face=box.querySelector('select[data-cell-prop="wall-face"]');(face?face.closest('.property-row'):wall.closest('.property-row')).after(row);
+        }
+        const flags=box.querySelector('.property-flags');if(flags)flags.textContent=`object bit ${t.hasObject?1:0} · wall fixture state bit 7 = ${t.fixtureState?1:0}`;
+      }
+      const ff=box.querySelector('select[data-cell-prop="floor-feature"]');if(ff){
+        const names={0:'Base floor feature',1:'Floor pad / trigger',2:'Invisible pad / trigger',3:'Ceiling Hole',4:'Floor Pit',5:'Ladder Up',6:'Ladder Down'};
+        for(const opt of ff.options){const v=Number(opt.value);if(Object.prototype.hasOwnProperty.call(names,v)&&opt.textContent!==names[v])opt.textContent=names[v];}
+      }
+      const lock=box.querySelector('select[data-cell-prop="door-lock"]');if(lock){for(const opt of lock.options){const i=Number(opt.value);if(LOCK_NAMES[i]&&opt.textContent!==LOCK_NAMES[i])opt.textContent=LOCK_NAMES[i];}const sw=box.querySelector('.lock-swatch');if(sw&&LOCK_NAMES[t.lockId])sw.title=LOCK_NAMES[t.lockId];}
+    }
+    function applyRawFromProperties(value,label){const inp=byId('editByte'),btn=byId('applyEdit');if(!inp||!btn)return;inp.value=hex2(value);btn.click();}
+    if(!document.__bwCellPropertySemanticPatch){
+      const box=byId('cellProperties');if(box){new MutationObserver(()=>applyCellPropertyPresentation()).observe(box,{childList:true,subtree:true});}
+      document.addEventListener('change',e=>{
+        const el=e.target;if(!el||!el.matches)return;
+        const rawInput=byId('editByte'),raw=parseInt(String(rawInput&&rawInput.value||''),16);if(!Number.isFinite(raw))return;
+        const t=global.BWTiles.decode(raw),obj=raw&0x04;
+        if(el.matches('select[data-cell-prop="wall-kind"]')){
+          e.preventDefault();e.stopImmediatePropagation();const face=Math.max(0,['N','E','S','W'].indexOf(t.facing));let value;
+          if(el.value==='plain')value=obj|0x03;
+          else if(el.value==='dark-fixture')value=obj|0x20|(face<<3)|0x03;
+          else if(el.value==='switch')value=obj|0x40|(face<<3)|0x03|(t.switchUsed?0x80:0);
+          else if(el.value==='socket')value=obj|0x60|(face<<3)|0x03;
+          else if(el.value==='socket-full')value=obj|0xe0|(face<<3)|0x03;
+          else if(el.value==='mindrock')value=obj|0x0b;else return;
+          applyRawFromProperties(value,'Set wall feature');return;
+        }
+        if(el.matches('select[data-cell-prop="wall-face"]')&&t.baseType===3&&['dark-fixture','switch','socket-empty','socket-filled'].includes(t.presentationKind)){
+          e.preventDefault();e.stopImmediatePropagation();const face=Number(el.value)&3,state=(t.switchUsed||t.socketFilled)?0x80:0,family=t.presentationKind==='dark-fixture'?0x20:t.presentationKind==='switch'?0x40:0x60;
+          applyRawFromProperties(obj|family|(face<<3)|0x03|state,'Set wall face');return;
+        }
+        if(el.matches('select[data-bw-cell-prop="switch-state"]')&&t.presentationKind==='switch'){
+          e.preventDefault();e.stopImmediatePropagation();applyRawFromProperties((raw&0x7f)|(Number(el.value)?0x80:0),'Set switch state');return;
+        }
+      },true);
+      document.__bwCellPropertySemanticPatch=true;setTimeout(applyCellPropertyPresentation,0);
     }
   }
   installUi();
@@ -395,52 +573,64 @@
   function render(canvas,tape,tower,floor,options){
     options=Object.assign({cellSize:30,aligned:true,showGrid:true,showHex:false,style:'amiga',selected:null,overlays:{}},options||{});
     const s=options.cellSize,style=['modern','amstrad','amiga'].includes(options.style)?options.style:'amiga',mode=options.mode||modeName();
+    if(!options.__blinkRedraw)cursorPhase=true;
     if(typeof document!=='undefined')document.querySelectorAll('.layout-overlay-control').forEach(el=>el.classList.toggle('hidden',mode!=='layout'));
-    const ml=style==='modern'?42:36,mt=style==='modern'?34:28,gw=Math.max(1,floor.width),gh=Math.max(1,floor.height);
+    const ml=style==='modern'?42:36,mt=style==='modern'?34:28,worldAligned=mode==='layout'||!!options.aligned;
+    const size=worldAligned?floorWorldSize(tower):{w:Math.max(1,floor.width),h:Math.max(1,floor.height)};
+    const gw=size.w,gh=size.h,originX=worldAligned?floor.xOffset:0,originY=worldAligned?floor.yOffset:0;
     canvas.width=ml+gw*s+8;canvas.height=mt+gh*s+8;const ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;
     ctx.fillStyle=style==='modern'?'#d7e0e7':style==='amstrad'?'#060685':'#000';ctx.fillRect(0,0,canvas.width,canvas.height);
-    const coord=style==='modern'?MOD.ink:'#ddd';for(let x=0;x<floor.width;x++)text(ctx,String(x),ml+x*s+s*.5,mt*.5,s*.27,coord);for(let y=0;y<floor.height;y++)text(ctx,String(y),ml-7,mt+y*s+s*.5,s*.27,coord,'right');
+    const coord=style==='modern'?MOD.ink:'#ddd';
+    for(let x=0;x<floor.width;x++)text(ctx,String(x),ml+(originX+x)*s+s*.5,mt+originY*s-Math.max(8,mt*.45),s*.27,coord);
+    for(let y=0;y<floor.height;y++)text(ctx,String(y),ml+originX*s-7,mt+(originY+y)*s+s*.5,s*.27,coord,'right');
 
     const analysis=mode==='layout'?layoutAnalysis(tape,tower):{issues:[],links:[]},issueSet=new Set(analysis.issues.map(i=>`${i.floor}:${i.x}:${i.y}`));
-    const relativeOrigin=f=>({x:f.xOffset-floor.xOffset,y:f.yOffset-floor.yOffset}),nativeShift=1,adjacent=[];
-    if(mode==='layout'){if(checked('ovLayoutBelow',true))adjacent.push({index:floor.floorIndex-1,shift:-nativeShift,colour:'#69768a',kinds:BELOW_ELEVATION_KINDS});if(checked('ovLayoutAbove',true))adjacent.push({index:floor.floorIndex+1,shift:nativeShift,colour:'#8798b2',kinds:ABOVE_ELEVATION_KINDS});}
+    const nudge=Math.max(4,Math.round(s/5)),adjacent=[];
+    if(mode==='layout'){if(checked('ovLayoutBelow',true))adjacent.push({index:floor.floorIndex-1,shift:-nudge,colour:'#69768a',kinds:BELOW_ELEVATION_KINDS});if(checked('ovLayoutAbove',true))adjacent.push({index:floor.floorIndex+1,shift:nudge,colour:'#8798b2',kinds:ABOVE_ELEVATION_KINDS});}
 
-    /* Adjacent geometry is a translucent world-aligned reference only. */
-    for(const adj of adjacent){const f=tower.floors[adj.index];if(!f||!f.used)continue;const o=relativeOrigin(f);ctx.save();ctx.globalAlpha=.32;ctx.strokeStyle=adj.colour;ctx.lineWidth=1;
-      for(let y=0;y<f.height;y++)for(let x=0;x<f.width;x++){const px=ml+(o.x+x)*s+adj.shift,py=mt+(o.y+y)*s+adj.shift;ctx.strokeRect(px+.5,py+.5,s-1,s-1);}ctx.restore();}
-    for(const adj of adjacent){const f=tower.floors[adj.index];if(!f||!f.used)continue;const o=relativeOrigin(f);for(let y=0;y<f.height;y++)for(let x=0;x<f.width;x++){
-      const c=global.BWBloodwych.getCell(tape,tower,f,x,y);if(!c||!adj.kinds.has(c.tile.presentationKind))continue;const localX=o.x+x,localY=o.y+y;if(localX<-1||localY<-1||localX>floor.width||localY>floor.height)continue;
-      const px=ml+localX*s+adj.shift,py=mt+localY*s+adj.shift;drawElevationOverlay(ctx,px,py,s,c.tile.presentationKind,style,adj.colour,.35);
+    /* Adjacent floors use their absolute world alignment and are nudged just
+       enough to remain visible where geometry overlaps. */
+    for(const adj of adjacent){const f=tower.floors[adj.index];if(!f||!f.used)continue;ctx.save();ctx.globalAlpha=.46;ctx.strokeStyle=adj.colour;ctx.lineWidth=1;
+      for(let y=0;y<f.height;y++)for(let x=0;x<f.width;x++){const px=ml+(f.xOffset+x)*s+adj.shift,py=mt+(f.yOffset+y)*s+adj.shift;ctx.strokeRect(px+.5,py+.5,s-1,s-1);}ctx.restore();}
+    for(const adj of adjacent){const f=tower.floors[adj.index];if(!f||!f.used)continue;for(let y=0;y<f.height;y++)for(let x=0;x<f.width;x++){
+      const c=global.BWBloodwych.getCell(tape,tower,f,x,y);if(!c||!adj.kinds.has(c.tile.presentationKind))continue;
+      const px=ml+(f.xOffset+x)*s+adj.shift,py=mt+(f.yOffset+y)*s+adj.shift;drawElevationOverlay(ctx,px,py,s,c.tile.presentationKind,style,adj.colour,.62);
       if(issueSet.has(`${f.floorIndex}:${x}:${y}`)){ctx.save();ctx.globalAlpha=.85;ctx.strokeStyle='#f55a50';ctx.lineWidth=Math.max(2,s*.07);ctx.strokeRect(px+s*.06,py+s*.06,s*.88,s*.88);ctx.restore();}
     }}
 
-    /* Draw selected-floor cell presentation first. Grid lines are deliberately
-       drawn AFTER the cells so style fills can never erase the grid. */
     for(let y=0;y<floor.height;y++)for(let x=0;x<floor.width;x++){
-      const px=ml+x*s,py=mt+y*s,c=global.BWBloodwych.getCell(tape,tower,floor,x,y);if(!c)continue;
+      const px=ml+(originX+x)*s,py=mt+(originY+y)*s,c=global.BWBloodwych.getCell(tape,tower,floor,x,y);if(!c)continue;
       if(mode==='layout'){
         if(ELEVATION_KINDS.has(c.tile.presentationKind)){drawElevationOverlay(ctx,px,py,s,c.tile.presentationKind,style,'#4b8eb4',.72);if(issueSet.has(`${floor.floorIndex}:${x}:${y}`)){ctx.save();ctx.strokeStyle='#f55a50';ctx.lineWidth=Math.max(2,s*.07);ctx.strokeRect(px+s*.04,py+s*.04,s*.92,s*.92);ctx.restore();}}
       }else drawBase(ctx,px,py,s,c,style,x,y);
     }
 
-    if(options.showGrid){ctx.save();ctx.globalAlpha=1;ctx.strokeStyle=gridColour(style,mode);ctx.lineWidth=1;for(let y=0;y<floor.height;y++)for(let x=0;x<floor.width;x++)ctx.strokeRect(ml+x*s+.5,mt+y*s+.5,s-1,s-1);ctx.restore();}
+    if(options.showGrid){ctx.save();ctx.globalAlpha=1;ctx.strokeStyle=gridColour(style,mode);ctx.lineWidth=1;for(let y=0;y<floor.height;y++)for(let x=0;x<floor.width;x++)ctx.strokeRect(ml+(originX+x)*s+.5,mt+(originY+y)*s+.5,s-1,s-1);ctx.restore();}
 
     const overlays=mode==='layout'?{starts:false,events:false,objects:false,monsters:false,specials:false}:{starts:overlayEnabled(options,'ovStarts','starts'),events:overlayEnabled(options,'ovEvents','events'),objects:overlayEnabled(options,'ovObjects','objects'),monsters:overlayEnabled(options,'ovMonsters','monsters'),specials:overlayEnabled(options,'ovSpecials','specials')};
     if(mode!=='layout')for(let y=0;y<floor.height;y++)for(let x=0;x<floor.width;x++){
-      const px=ml+x*s,py=mt+y*s,c=global.BWBloodwych.getCell(tape,tower,floor,x,y);if(!c)continue;
+      const px=ml+(originX+x)*s,py=mt+(originY+y)*s,c=global.BWBloodwych.getCell(tape,tower,floor,x,y);if(!c)continue;
       if(overlays.objects&&c.objectStacks.length)marker(ctx,c.objectStacks.length>1?`O${c.objectStacks.length}`:'O',px,py,s,style==='amiga'?AMIGA[5]:MOD.object,'#fff','bl');
       if(overlays.monsters&&c.monsters.length)marker(ctx,c.monsters.length>1?`M${c.monsters.length}`:'M',px,py,s,style==='amiga'?AMIGA[12]:MOD.monster,'#fff','br');
       if(overlays.events&&c.events.length)marker(ctx,c.events.length>1?`E${c.events.length}`:'E',px,py,s,style==='amiga'?AMIGA[8]:MOD.event,'#fff','centre');
       if(options.showHex)text(ctx,c.value.toString(16).toUpperCase().padStart(2,'0'),px+2,py+s*.14,s*.18,style==='modern'?'#52616d':'#aaa','left');
     }
-    if(overlays.starts)for(const ps of tower.playerStarts||[]){if(ps.floorIndex!==floor.floorIndex||ps.x>=floor.width||ps.y>=floor.height)continue;const px=ml+ps.x*s,py=mt+ps.y*s;ctx.fillStyle=ps.player===1?'#2474d2':'#d83e4b';ctx.fillRect(px+s*.18,py+s*.18,s*.64,s*.64);text(ctx,`P${ps.player}`,px+s*.5,py+s*.52,s*.26,'#fff');}
-    if(overlays.specials&&tower.specials)for(const sp of tower.specials.crystal||[]){if(sp.empty||!sp.source||sp.source.floorIndex!==floor.floorIndex)continue;const px=ml+sp.source.x*s,py=mt+sp.source.y*s;marker(ctx,specialLabel(sp),px,py,s,specialColour(sp),'#fff','br');}
+    if(overlays.starts)for(const ps of tower.playerStarts||[]){if(ps.floorIndex!==floor.floorIndex||ps.x>=floor.width||ps.y>=floor.height)continue;const px=ml+(originX+ps.x)*s,py=mt+(originY+ps.y)*s;ctx.fillStyle=ps.player===1?'#2474d2':'#d83e4b';ctx.fillRect(px+s*.18,py+s*.18,s*.64,s*.64);text(ctx,`P${ps.player}`,px+s*.5,py+s*.52,s*.26,'#fff');}
+    if(overlays.specials&&tower.specials)for(const sp of tower.specials.crystal||[]){if(sp.empty||!sp.source||sp.source.floorIndex!==floor.floorIndex)continue;const px=ml+(originX+sp.source.x)*s,py=mt+(originY+sp.source.y)*s;marker(ctx,specialLabel(sp),px,py,s,specialColour(sp),'#fff','br');}
 
-    if(mode==='layout'&&checked('ovLayoutLinks',false)){ctx.save();ctx.strokeStyle='#50e1a5';ctx.lineWidth=Math.max(2,s*.05);for(const link of analysis.links){if(link.floor!==floor.floorIndex&&link.targetFloor!==floor.floorIndex)continue;const source=tower.floors[link.floor],target=tower.floors[link.targetFloor];if(!source||!target)continue;const so=relativeOrigin(source),to=relativeOrigin(target);let sx=ml+(so.x+link.x+.5)*s,sy=mt+(so.y+link.y+.5)*s,tx=ml+(to.x+link.targetX+.5)*s,ty=mt+(to.y+link.targetY+.5)*s;if(link.floor===floor.floorIndex-1){sx-=nativeShift;sy-=nativeShift;}else if(link.floor===floor.floorIndex+1){sx+=nativeShift;sy+=nativeShift;}if(link.targetFloor===floor.floorIndex-1){tx-=nativeShift;ty-=nativeShift;}else if(link.targetFloor===floor.floorIndex+1){tx+=nativeShift;ty+=nativeShift;}ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(tx,ty);ctx.stroke();}ctx.restore();}
+    if(mode==='layout'&&checked('ovLayoutLinks',false)){ctx.save();ctx.strokeStyle='#50e1a5';ctx.lineWidth=Math.max(2,s*.05);for(const link of analysis.links){if(link.floor!==floor.floorIndex&&link.targetFloor!==floor.floorIndex)continue;const source=tower.floors[link.floor],target=tower.floors[link.targetFloor];if(!source||!target)continue;let sx=ml+(source.xOffset+link.x+.5)*s,sy=mt+(source.yOffset+link.y+.5)*s,tx=ml+(target.xOffset+link.targetX+.5)*s,ty=mt+(target.yOffset+link.targetY+.5)*s;if(link.floor===floor.floorIndex-1){sx-=nudge;sy-=nudge;}else if(link.floor===floor.floorIndex+1){sx+=nudge;sy+=nudge;}if(link.targetFloor===floor.floorIndex-1){tx-=nudge;ty-=nudge;}else if(link.targetFloor===floor.floorIndex+1){tx+=nudge;ty+=nudge;}ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(tx,ty);ctx.stroke();}ctx.restore();}
 
-    if(options.selected){const px=ml+options.selected.x*s,py=mt+options.selected.y*s;ctx.strokeStyle=style==='modern'?'#008fa0':'#00ffff';ctx.lineWidth=3;ctx.strokeRect(px+1.5,py+1.5,s-3,s-3);ctx.lineWidth=1;}
-    return {marginLeft:ml,marginTop:mt,originX:0,originY:0,cellSize:s,gridW:gw,gridH:gh,style,layoutIssues:analysis.issues,layoutNativeShift:nativeShift};
+    if(options.selected&&cursorPhase){const px=ml+(originX+options.selected.x)*s,py=mt+(originY+options.selected.y)*s;ctx.strokeStyle=style==='modern'?'#008fa0':'#00ffff';ctx.lineWidth=Math.max(2,s*.08);ctx.strokeRect(px+1.5,py+1.5,s-3,s-3);ctx.lineWidth=1;}
+    const metrics={marginLeft:ml,marginTop:mt,originX,originY,cellSize:s,gridW:gw,gridH:gh,style,layoutIssues:analysis.issues,layoutNativeShift:nudge,worldAligned};
+    if(!options.__blinkRedraw)lastRenderState={canvas,tape,tower,floor,options:Object.assign({},options),metrics};
+    else if(lastRenderState)lastRenderState.metrics=metrics;
+    return metrics;
   }
 
-  global.BWRenderer={render,rowLabel,RUNTIME_MAGIC_KINDS:['firepath','mindrock','formwall'],layoutAnalysis,layoutAdjacentKinds(side){return Array.from(side==='below'?BELOW_ELEVATION_KINDS:side==='above'?ABOVE_ELEVATION_KINDS:[]);},presentationCore(value){return (value&3)===2?(value&255):(value&0x7b);},ELEVATION_KINDS:Array.from(ELEVATION_KINDS)};
+  if(typeof setInterval==='function')setInterval(()=>{
+    if(!lastRenderState||!lastRenderState.options||!lastRenderState.options.selected)return;cursorPhase=!cursorPhase;
+    render(lastRenderState.canvas,lastRenderState.tape,lastRenderState.tower,lastRenderState.floor,Object.assign({},lastRenderState.options,{__blinkRedraw:true}));
+  },450);
+
+  global.BWRenderer={render,rowLabel,RUNTIME_MAGIC_KINDS:['firepath','mindrock','formwall'],layoutAnalysis,layoutAdjacentKinds(side){return Array.from(side==='below'?BELOW_ELEVATION_KINDS:side==='above'?ABOVE_ELEVATION_KINDS:[]);},presentationCore(value){const v=value&255;return (v&3)===2?v:(v&3)===3?(v&0xfb):(v&0x7b);},worldToFloorCursor,ELEVATION_KINDS:Array.from(ELEVATION_KINDS),WORLD_GRID_MIN};
 })(window);
