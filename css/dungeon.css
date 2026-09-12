@@ -1,0 +1,16 @@
+/* Source-derived ZX first-person viewport. */
+.dungeon-placeholder{margin-top:10px}
+.bw-dungeon-frame{display:flex;justify-content:center;align-items:center;background:#000;border:2px solid #4b535d;padding:4px;min-height:202px;overflow:hidden}
+#bwDungeonCanvas{display:block;width:312px;max-width:100%;height:auto;image-rendering:pixelated;image-rendering:crisp-edges;background:#000}
+.bw-dungeon-face{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:7px}
+.bw-dungeon-face button,.bw-dungeon-nav button{padding:5px 6px;min-width:0}
+.bw-dungeon-face button.active{background:#3d78b8;border-color:#78b8ef;color:#fff}
+.bw-dungeon-nav{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:4px}
+.bw-dungeon-meta{margin-top:7px;padding:6px 7px;border:1px solid #303640;background:#111419;border-radius:4px;font:10px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#c9d0d6;line-height:1.4}
+.bw-dungeon-gap{margin-top:5px;font-size:10px;color:#8f99a3;line-height:1.35}
+.bw-dungeon-meta.warn,.bw-dungeon-gap.warn{color:#ffc75f}
+.bw-dungeon-nav{grid-template-columns:repeat(3,1fr)}
+.bw-dungeon-nav button{display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+.bw-dungeon-nav kbd{display:inline-block;min-width:18px;padding:1px 3px;border:1px solid #59616b;border-bottom-width:2px;border-radius:3px;background:#171b20;font:10px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#e3e8ec}
+.bw-dungeon-nav span{font-size:10px}
+.bw-dungeon-keyhelp{margin-top:4px;text-align:center;font-size:9px;color:#8f99a3;line-height:1.3}
